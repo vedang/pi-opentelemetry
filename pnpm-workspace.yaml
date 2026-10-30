@@ -1,0 +1,5 @@
+# Published packages are usable without these dependency lifecycle scripts.
+# genai's preinstall only echoes; protobufjs 7's postinstall only warns about ranges.
+allowBuilds:
+  '@google/genai': false
+  protobufjs: false

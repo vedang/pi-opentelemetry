@@ -2,6 +2,6 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": ["vitest.config.*.ts", "__tests__/fixtures/probe.ts"],
   "project": ["src/**/*.ts", "__tests__/**/*.ts", "vitest.config.*.ts"],
-  "ignoreDependencies": ["@biomejs/biome", "@opentelemetry/otlp-transformer"],
+  "ignoreDependencies": ["@biomejs/biome"],
   "ignoreBinaries": ["make"]
 }

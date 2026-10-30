@@ -203,15 +203,15 @@ importers:
       '@earendil-works/pi-coding-agent':
         specifier: 1.4.0
         version: 1.4.0(@aws-sdk/credential-provider-node@3.972.90)(@smithy/signature-v4@5.7.4)(ws@8.22.0)(zod@4.6.7)
-      '@opentelemetry/otlp-transformer':
-        specifier: 0.300.0
-        version: 0.300.0(@opentelemetry/api@1.10.0)
       '@types/node':
         specifier: 24.12.0
         version: 24.12.0
       knip:
         specifier: 6.29.0
         version: 6.29.0
+      protobufjs:
+        specifier: 8.8.0
+        version: 8.8.0
       typescript:
         specifier: 7.0.2
         version: 7.0.2
@@ -1500,6 +1500,10 @@ packages:
 
   protobufjs@7.6.6:
     resolution: {integrity: sha512-dYDWdjSl5RNb7SgPxGQcRU+GtvP7s2fpkrY0r432PcOIaZ0/rBcxEZnQN67iJhFuQiVw754JDoPruPCNdGsbjg==}
+    engines: {node: '>=12.0.0'}
+
+  protobufjs@8.8.0:
+    resolution: {integrity: sha512-N3xhQ5yyBx3vQq4gubBfASzYhJGNzeDbjqBpu61g7UVylsN/qyffU96TKWD3GbbLOKF82VGNRNvv1+BFgE31Eg==}
     engines: {node: '>=12.0.0'}
 
   proxy-agent-negotiate@1.1.0:
@@ -2988,6 +2992,10 @@ snapshots:
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.2
       '@types/node': 24.12.0
+      long: 5.3.2
+
+  protobufjs@8.8.0:
+    dependencies:
       long: 5.3.2
 
   proxy-agent-negotiate@1.1.0: {}
