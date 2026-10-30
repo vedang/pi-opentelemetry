@@ -12,10 +12,11 @@ No claim of durable viewer/database persistence follows from an export ACK.
 
 **Current acceptance:** formatting, TypeScript, Knip, and all default tests pass,
 including real-Pi lifecycle and decoded logs/metrics/traces, privacy, bounds,
-accounting, and outage/cleanup checks. The tarball has been packed and inspected.
-Frozen dependency installation and isolated tarball install/load are still
-pending because the active harness blocks package mutation. Do not treat this
-candidate as release-ready until those packaging gates pass.
+accounting, and outage/cleanup checks. The tarball has been packed, inspected,
+and successfully installed/loaded in an isolated pnpm project (owner-run
+`make test-package`). Only frozen dependency installation confirmation remains
+pending; the active harness blocks the agent from running it. Live persistence
+verification remains a separate approval gate.
 
 ## Try locally
 

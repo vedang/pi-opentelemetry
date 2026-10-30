@@ -2,8 +2,9 @@
 
 Status: discovery and default implementation acceptance are complete. Real-SDK
 and decoded-wire tests now pass after the owner installed the direct decoder.
-Only frozen dependency installation and isolated package-install acceptance
-remain blocked by the active package-mutation harness policy. See `.agents/implementation-handoff.md` for exact gates, not the
+The owner-run isolated tarball install/load now passes. Only frozen dependency
+installation confirmation remains pending under the active package-mutation
+harness policy. See `.agents/implementation-handoff.md` for exact gates, not the
 historical discovery-only statements below. Current owner manifest and actual
 `pnpm --version` are **12.16.1**; use that pin for development and CI. The 12.15.0
 mentions below describe earlier discovery runs, not the release toolchain.
