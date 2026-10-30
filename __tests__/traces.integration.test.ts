@@ -6,11 +6,11 @@ it.each(["1", "0"])(
   "trace toggle=%s preserves accounting and explicit log/run/request/tool correlation",
   async (traces) => {
     const collector = await receiver();
-    const child = await startSession(collector.endpoint, {
-      FIXTURE_SCENARIO: "tools",
-      PI_OTEL_TRACES: traces,
-    });
     try {
+      const child = await startSession(collector.endpoint, {
+        FIXTURE_SCENARIO: "tools",
+        PI_OTEL_TRACES: traces,
+      });
       const result = await child.stop();
       expect(result.stdout).toBe("");
       expect(result.shutdownMs).toBeLessThan(1500);

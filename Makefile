@@ -40,6 +40,10 @@ test-unit:
 test-integration:
 	./node_modules/.bin/vitest run --config vitest.config.integration.ts
 
+.PHONY: test-package
+test-package: ## Pack, inspect and offline-install/load in a temporary pnpm project
+	bash scripts/test-package.sh
+
 .PHONY: test
 test: test-unit ## Run deterministic unit then integration suites
 	@$(MAKE) test-integration

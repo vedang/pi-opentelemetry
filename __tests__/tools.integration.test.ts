@@ -6,13 +6,13 @@ it.each(["tools", "abort"])(
   "records real %s tool executions without adding inclusive tool usage",
   async (scenario) => {
     const collector = await receiver();
-    const child = await startSession(collector.endpoint, {
-      FIXTURE_SCENARIO: scenario,
-    });
     try {
+      const child = await startSession(collector.endpoint, {
+        FIXTURE_SCENARIO: scenario,
+      });
       const result = await child.stop();
       expect(result.stdout).toBe("");
-      expect(result.stderr).not.toContain("FORBIDDEN_CONTENT_47f6");
+      expect(result.stderr).toBe("");
       expect(result.shutdownMs).toBeLessThan(1500);
       const logs = collector.logs();
       const tools = logs

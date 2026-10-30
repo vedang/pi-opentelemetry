@@ -1,6 +1,13 @@
 # Minimal-release contracts
 
-Status: discovery resumed. Owner approved fail-closed disabling whenever any
+Status: discovery complete; implementation is now present but decoded-wire and
+isolated package-install acceptance are blocked by the active package-mutation
+harness policy. See `.agents/implementation-handoff.md` for exact gates, not the
+historical discovery-only statements below. Current owner manifest and actual
+`pnpm --version` are **12.16.1**; use that pin for development and CI. The 12.15.0
+mentions below describe earlier discovery runs, not the release toolchain.
+
+Owner approved fail-closed disabling whenever any
 inherited general or per-signal OTLP header setting is present (including empty).
 Keep official signal gRPC exporters; no delegate/encoder or process.env mutation.
 The former header blocker is resolved by this explicit contract adjustment.
@@ -47,7 +54,11 @@ Installed Pi documentation was read at
 
 The actual local `pi-exa` Makefile/package/Biome/Knip/TS/Vitest/loader fixture and
 `pi-btw` package were inspected. Retain that scaffold, replacing Bun with pnpm.
-No scaffold has been installed in this repository past the discovery gate.
+The owner has since installed the scaffold in this repository and supplied
+`pnpm-lock.yaml`; those manifest/lock changes were preserved. The remaining
+missing direct test decoder is `protobufjs` (the installed OTLP transformer only
+exports request encoders and response decoders). Do not import a transitive copy,
+modify the manifest to evade the harness, or substitute a custom decoder.
 
 ## Pi mapping established by declarations/source (not yet lifecycle-tested)
 

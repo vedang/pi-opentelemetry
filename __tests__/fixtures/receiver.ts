@@ -8,7 +8,7 @@ import {
 } from "@grpc/grpc-js";
 import protobuf from "protobufjs";
 
-export interface KeyValue {
+interface KeyValue {
   key: string;
   value: {
     stringValue?: string;
@@ -17,26 +17,26 @@ export interface KeyValue {
     boolValue?: boolean;
   };
 }
-export interface WireLog {
+interface WireLog {
   eventName: string;
   body: { stringValue: string };
   attributes: KeyValue[];
   traceId?: string;
   spanId?: string;
 }
-export interface WirePoint {
+interface WirePoint {
   attributes: KeyValue[];
   asDouble?: number;
   asInt?: string;
   count?: string;
   sum?: number;
 }
-export interface WireMetric {
+interface WireMetric {
   name: string;
   sum?: { aggregationTemporality: string; dataPoints: WirePoint[] };
   histogram?: { aggregationTemporality: string; dataPoints: WirePoint[] };
 }
-export interface WireSpan {
+interface WireSpan {
   name: string;
   traceId: string;
   spanId: string;
