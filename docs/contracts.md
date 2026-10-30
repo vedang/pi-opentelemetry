@@ -1,8 +1,9 @@
 # Minimal-release contracts
 
-Status: discovery complete; implementation is now present but decoded-wire and
-isolated package-install acceptance are blocked by the active package-mutation
-harness policy. See `.agents/implementation-handoff.md` for exact gates, not the
+Status: discovery and default implementation acceptance are complete. Real-SDK
+and decoded-wire tests now pass after the owner installed the direct decoder.
+Only frozen dependency installation and isolated package-install acceptance
+remain blocked by the active package-mutation harness policy. See `.agents/implementation-handoff.md` for exact gates, not the
 historical discovery-only statements below. Current owner manifest and actual
 `pnpm --version` are **12.16.1**; use that pin for development and CI. The 12.15.0
 mentions below describe earlier discovery runs, not the release toolchain.
@@ -55,12 +56,12 @@ Installed Pi documentation was read at
 The actual local `pi-exa` Makefile/package/Biome/Knip/TS/Vitest/loader fixture and
 `pi-btw` package were inspected. Retain that scaffold, replacing Bun with pnpm.
 The owner has since installed the scaffold in this repository and supplied
-`pnpm-lock.yaml`; those manifest/lock changes were preserved. The remaining
-missing direct test decoder is `protobufjs` (the installed OTLP transformer only
-exports request encoders and response decoders). Do not import a transitive copy,
-modify the manifest to evade the harness, or substitute a custom decoder.
+`pnpm-lock.yaml`; those manifest/lock changes were preserved. The owner installed direct `protobufjs@8.8.0` and removed the unused OTLP
+transformer (which only exports request encoders and response decoders).
+`pnpm-workspace.yaml` explicitly declines unnecessary `@google/genai` and
+transitive protobufjs 7 lifecycle scripts. No build approval is needed.
 
-## Pi mapping established by declarations/source (not yet lifecycle-tested)
+## Pi mapping established by declarations/source and real-SDK tests
 
 | Transition | Public sequence / ownership |
 | --- | --- |

@@ -10,12 +10,12 @@ choice. Implementation and isolated package validation are separate from live
 persistence verification; the latter still requires explicit approval (uf4.8).
 No claim of durable viewer/database persistence follows from an export ACK.
 
-**Current acceptance:** implementation is present, and the unit, installed-Pi
-loader and four real-Pi outage/cleanup cases pass. Decoded-wire suites are authored
-but cannot run until a direct `protobufjs` development dependency is installed:
-the active harness still blocks package mutation. The tarball has been packed and
-inspected; its isolated install/load step is likewise not yet accepted. Do not
-treat this candidate as release-ready until those gates pass.
+**Current acceptance:** formatting, TypeScript, Knip, and all default tests pass,
+including real-Pi lifecycle and decoded logs/metrics/traces, privacy, bounds,
+accounting, and outage/cleanup checks. The tarball has been packed and inspected.
+Frozen dependency installation and isolated tarball install/load are still
+pending because the active harness blocks package mutation. Do not treat this
+candidate as release-ready until those packaging gates pass.
 
 ## Try locally
 
@@ -24,6 +24,7 @@ Pi's Node floor (>=22.19.0); other Node/Pi versions have not been exercised.
 
 ```sh
 pnpm install --frozen-lockfile --ignore-scripts
+# pnpm-workspace.yaml explicitly declines unnecessary genai/protobufjs scripts.
 # Temporary activation only; do not run against a live pipeline without approval.
 env PI_OTEL_ENABLED=1 PI_OTEL_TRACES=1 \
   OTEL_EXPORTER_OTLP_PROTOCOL=grpc \
@@ -150,8 +151,10 @@ Trace-off preserves session/run/request/tool correlation attributes and the same
 usage metrics, but does not invent trace/span IDs. Provider transport hooks are
 not required for the supported assistant lifecycle observations.
 
-Outcomes are success, error, aborted or incomplete. Tools use public cancellation
-state, never error-text matching. A run retains an observed failure/abort even if
+Outcomes are success, error, aborted or incomplete. Tools and assistant
+observations use public cancellation state, never error-text matching.
+Cancellation can produce an additional zero-usage assistant observation; request
+observation counts are not billable-request counts. A run retains an observed failure/abort even if
 later work recovers. Unmatched completions are suppressed with known loss, never
 turned into successful zero-duration operations. Shutdown interruptions end open
 spans as incomplete, omit unavailable completion durations, and do not increment
