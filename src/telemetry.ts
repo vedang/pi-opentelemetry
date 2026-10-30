@@ -198,7 +198,9 @@ export class Telemetry {
   start(name: string, attributes: Attributes, parent?: Span): Span | undefined {
     return this.tracer?.startSpan(
       name,
-      { attributes },
+      // Use one process-wide wall/monotonic clock mapping. SDK-default spans
+      // each anchor to rounded Date.now(), which can invert nested endpoints.
+      { attributes, startTime: performance.timeOrigin + performance.now() },
       parent ? trace.setSpan(ROOT_CONTEXT, parent) : ROOT_CONTEXT,
     );
   }
@@ -208,7 +210,7 @@ export class Telemetry {
     span?.setStatus({
       code: outcome === "success" ? SpanStatusCode.OK : SpanStatusCode.ERROR,
     });
-    span?.end();
+    span?.end(performance.timeOrigin + performance.now());
   }
 
   emit(name: string, attributes: Attributes, span?: Span) {
