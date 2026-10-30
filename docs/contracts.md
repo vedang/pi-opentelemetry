@@ -1,8 +1,9 @@
-# Minimal-release contracts — discovery blocked
+# Minimal-release contracts
 
-Status: **not implementation-ready**. Bead `pi-opentelemetryroot-uf4.1` is blocked,
-not accepted. The plan explicitly requires stopping for an owner decision when a
-required supported boundary is unavailable. No release extension exists yet.
+Status: discovery resumed. Owner approved fail-closed disabling whenever any
+inherited general or per-signal OTLP header setting is present (including empty).
+Keep official signal gRPC exporters; no delegate/encoder or process.env mutation.
+The former header blocker is resolved by this explicit contract adjustment.
 
 ## Inspected versions and sources
 
@@ -183,7 +184,7 @@ Observed with natural exit code 0, no forced exit:
 This is deliberate synthetic sentinel data, never owner credentials. It proves
 the required no-inherited-headers contract fails even with explicit options.
 
-## Smallest owner decision, then next steps
+## Historical alternatives (superseded by owner approval)
 
 Preferred narrow plan adjustment: permit composition of the **official publicly
 exported gRPC export delegate, official serializers and exporter base APIs**
@@ -206,5 +207,13 @@ ModelRuntime and local registered provider, legal AssistantMessageEventStream,
 async AgentSessionRuntime disposal. Test real prompt/tool/transition dispatch;
 never directly invoke captured extension handlers. Decode actual wire payloads
 using maintained OTLP definitions. None of that acceptance is claimed here.
-A separate owner-approved license choice is also still needed before
-`uf4.7` distribution. `uf4.8` remains a distinct live-export approval gate.
+Owner approval permits private/UNLICENSED implementation and isolated tarball
+validation. Owner must choose a license before PUBLIC distribution. `uf4.8`
+remains a distinct live-export approval gate.
+
+## Approved continuation
+
+Fail closed before constructing providers if OTEL_EXPORTER_OTLP_HEADERS or any
+OTEL_EXPORTER_OTLP_{LOGS,METRICS,TRACES}_HEADERS key is present. Emit only a fixed
+safe diagnostic; never the name/value contents. This supersedes the alternatives
+above. Finish real SDK/wire/shutdown validation during the ordered slices.
