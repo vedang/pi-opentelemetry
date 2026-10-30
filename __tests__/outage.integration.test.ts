@@ -1,6 +1,40 @@
 import { createServer, type Socket } from "node:net";
 import { expect, it } from "vitest";
 import { startSession } from "./fixtures/child.ts";
+import { receiver } from "./fixtures/receiver.ts";
+
+it("bounds real OTLP calls accepted by a receiver that never replies", async () => {
+  const collector = await receiver("hung");
+  let child: Awaited<ReturnType<typeof startSession>> | undefined;
+  try {
+    child = await startSession(collector.endpoint, { PI_OTEL_TRACES: "1" });
+    await expect
+      .poll(
+        () => ({
+          logs: collector.requests.some((request) => request.resourceLogs),
+          metrics: collector.requests.some(
+            (request) => request.resourceMetrics,
+          ),
+          traces: collector.requests.some((request) => request.resourceSpans),
+        }),
+        { timeout: 12000 },
+      )
+      .toEqual({ logs: true, metrics: true, traces: true });
+    await child.action("prompt");
+  } finally {
+    try {
+      if (child) {
+        const result = await child.stop();
+        expect(result.stdout).toBe("");
+        expect(result.stderr).toBe("pi-otel: degraded (telemetry loss)\n");
+        expect(result.shutdownMs).toBeLessThan(1500);
+      }
+    } finally {
+      // Receiver sockets are not part of the child's resource-leak measurement.
+      collector.close();
+    }
+  }
+});
 
 it.each([
   { mode: "refused", scenario: "assistant" },
