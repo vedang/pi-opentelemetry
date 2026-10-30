@@ -8,6 +8,11 @@ it("reports per-signal acknowledgements but keeps known export loss sticky after
   let child: Awaited<ReturnType<typeof startSession>> | undefined;
   try {
     child = await startSession(collector.endpoint, { PI_OTEL_TRACES: "1" });
+    const active = child;
+    const status = async () => {
+      await active.action("status");
+      return active.statuses.at(-1);
+    };
     let deadline = Date.now() + 8000;
     while (
       (!collector.requests.some((request) => request.resourceLogs) ||
@@ -18,10 +23,10 @@ it("reports per-signal acknowledgements but keeps known export loss sticky after
     expect(collector.requests.some((request) => request.resourceLogs)).toBe(
       true,
     );
-    await child.action("status");
-    expect(child.statuses.at(-1)).toMatch(
-      /degraded.*logs=failed.*traces=failed.*loss=yes/,
-    );
+    // Receiving a request is not a client-side export acknowledgement.
+    await expect
+      .poll(status, { timeout: 8000 })
+      .toMatch(/degraded.*logs=failed.*traces=failed.*loss=yes/);
     collector.setMode("ok");
     await child.action("prompt");
     deadline = Date.now() + 12000;
@@ -34,10 +39,9 @@ it("reports per-signal acknowledgements but keeps known export loss sticky after
       Date.now() < deadline
     )
       await delay(25);
-    await child.action("status");
-    expect(child.statuses.at(-1)).toBe(
-      "pi-otel: degraded; logs=ok, metrics=ok, traces=ok; loss=yes",
-    );
+    await expect
+      .poll(status, { timeout: 8000 })
+      .toBe("pi-otel: degraded; logs=ok, metrics=ok, traces=ok; loss=yes");
   } finally {
     try {
       if (child) {
