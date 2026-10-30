@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import {Server,ServerCredentials,credentials,Metadata} from '@grpc/grpc-js';
+import {OTLPLogExporter} from '@opentelemetry/exporter-logs-otlp-grpc';
+import {OTLPTraceExporter} from '@opentelemetry/exporter-trace-otlp-grpc';
+import {OTLPMetricExporter} from '@opentelemetry/exporter-metrics-otlp-grpc';
+import {LoggerProvider,BatchLogRecordProcessor} from '@opentelemetry/sdk-logs';
+import {TracerProvider,BatchSpanProcessor} from '@opentelemetry/sdk-trace';
+import {MeterProvider,PeriodicExportingMetricReader,AggregationTemporality} from '@opentelemetry/sdk-metrics';
+import {resourceFromAttributes} from '@opentelemetry/resources';
+const server=new Server();let received=0;
+for(const [signal,service] of [['logs','Logs'],['trace','Trace'],['metrics','Metrics']]) server.addService({export:{path:`/opentelemetry.proto.collector.${signal}.v1.${service}Service/Export`,requestStream:false,responseStream:false,requestSerialize:x=>x,requestDeserialize:x=>x,responseSerialize:x=>x,responseDeserialize:x=>x}},{export(){received++;}});
+const port=await new Promise((resolve,reject)=>server.bindAsync('127.0.0.1:0',ServerCredentials.createInsecure(),(err,p)=>err?reject(err):resolve(p)));
+const options={url:`http://127.0.0.1:${port}`,credentials:credentials.createInsecure(),metadata:new Metadata(),compression:'none',timeoutMillis:100,concurrencyLimit:1};
+const resource=resourceFromAttributes({'service.name':'probe'});
+const batching={maxQueueSize:64,maxExportBatchSize:64,scheduledDelayMillis:5000,exportTimeoutMillis:150};
+const logs=new LoggerProvider({resource,processors:[new BatchLogRecordProcessor({...batching,exporter:new OTLPLogExporter(options)})]});
+const traces=new TracerProvider({resource,spanProcessors:[new BatchSpanProcessor({...batching,exporter:new OTLPTraceExporter(options)})]});
+const metrics=new MeterProvider({resource,readers:[new PeriodicExportingMetricReader({exporter:new OTLPMetricExporter({...options,temporalityPreference:AggregationTemporality.DELTA}),exportIntervalMillis:10000,exportTimeoutMillis:150,cardinalityLimits:{default:64}})]});
+for(let i=0;i<1024;i++){logs.getLogger('probe').emit({body:'pi.test'});traces.getTracer('probe').startSpan('pi.test').end();metrics.getMeter('probe').createCounter('pi.test').add(1);}
+const start=performance.now();const results=await Promise.allSettled([logs.shutdown(),traces.shutdown(),metrics.shutdown()]); console.log(results.map(x=>x.status));const elapsed=performance.now()-start;assert(elapsed<1500);assert(received>=3);server.forceShutdown();console.log(JSON.stringify({elapsed,received}));

@@ -94,8 +94,10 @@ reached and mark sticky local loss. An unmatched end must not invent success or
 timing. Do not replay transcript entries, reconcile cumulative session statistics,
 or use tool-result usage. Exclude compaction, branch summaries, cache warming,
 separate nested/tool model calls and all spending outside these observations.
-Exactly-once durable accounting is not promised. Object identity/finalization
-semantics still require the real-SDK fixture before settling the implementation.
+Exactly-once durable accounting is not promised. Pi agent-loop 1.4.0 emits a shallow copy at assistant start and the finalized
+message at end (lines 292, 323–338); object identity is NOT a valid pairing key.
+The supported assistant streams are serial within each agent run. Consume one
+active observation at end and clear it; no transcript/reply-ID registry.
 
 Tool start/end events expose `toolCallId`, `toolName`, optional
 `parentToolCallId`; nested calls get Pi IDs `<parent>/<n>`. End exposes `isError`
@@ -216,4 +218,12 @@ remains a distinct live-export approval gate.
 Fail closed before constructing providers if OTEL_EXPORTER_OTLP_HEADERS or any
 OTEL_EXPORTER_OTLP_{LOGS,METRICS,TRACES}_HEADERS key is present. Emit only a fixed
 safe diagnostic; never the name/value contents. This supersedes the alternatives
-above. Finish real SDK/wire/shutdown validation during the ordered slices.
+above. Discovery probes `docs/probes/lifecycle.mjs` and `shutdown.mjs` ran with natural
+exit 0. Real SDK prompt emitted startup/run/assistant start/end/new/quit in the
+expected order. Private three-signal full-load hung-receiver shutdown settled in
+206 ms with 100 ms RPC deadlines, queue=batch=64, processor deadline 150 ms.
+Trace provider shutdown can reject before closing its exporter: retain official
+exporters and explicitly await their public shutdown in a finally phase after
+all provider shutdowns settle. No Promise-race-only cleanup. Use these tighter
+limits (permitted target adjustment); validate failures/clean child exit in the
+release harness. Remaining lifecycle/wire acceptance belongs to ordered slices.
