@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "license": "UNLICENSED",
-  "packageManager": "pnpm@12.15.0",
+  "packageManager": "pnpm@12.16.1",
   "description": "Metadata-only local Pi telemetry.",
   "type": "module",
   "main": "./src/index.ts",
@@ -35,22 +35,22 @@
   "dependencies": {
     "@grpc/grpc-js": "1.14.6",
     "@opentelemetry/api": "1.10.0",
+    "@opentelemetry/exporter-logs-otlp-grpc": "0.300.0",
+    "@opentelemetry/exporter-metrics-otlp-grpc": "0.300.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "0.300.0",
     "@opentelemetry/resources": "3.0.0",
     "@opentelemetry/sdk-logs": "3.0.0",
     "@opentelemetry/sdk-metrics": "3.0.0",
-    "@opentelemetry/sdk-trace": "3.0.0",
-    "@opentelemetry/exporter-logs-otlp-grpc": "0.300.0",
-    "@opentelemetry/exporter-metrics-otlp-grpc": "0.300.0",
-    "@opentelemetry/exporter-trace-otlp-grpc": "0.300.0"
+    "@opentelemetry/sdk-trace": "3.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.5",
-    "@earendil-works/pi-coding-agent": "1.4.0",
     "@earendil-works/pi-ai": "1.4.0",
+    "@earendil-works/pi-coding-agent": "1.4.0",
+    "@opentelemetry/otlp-transformer": "0.300.0",
     "@types/node": "24.12.0",
     "knip": "6.29.0",
     "typescript": "7.0.2",
-    "vitest": "4.1.10",
-    "@opentelemetry/otlp-transformer": "0.300.0"
+    "vitest": "4.1.10"
   }
 }
