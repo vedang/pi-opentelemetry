@@ -2,64 +2,68 @@ import { expect, it } from "vitest";
 import { startSession } from "./fixtures/child.ts";
 import { attributes, receiver } from "./fixtures/receiver.ts";
 
-it("isolates destinations/resources/credentials and excludes content in all three signals", async () => {
-  const collector = await receiver();
-  const trap = await receiver();
-  const hostile: NodeJS.ProcessEnv = {
-    PI_OTEL_TRACES: "1",
-    FIXTURE_SCENARIO: "tools",
-    OTEL_SERVICE_NAME: "FORBIDDEN_CONTENT_47f6",
-    OTEL_RESOURCE_ATTRIBUTES: "secret=FORBIDDEN_CONTENT_47f6",
-    OTEL_TRACES_SAMPLER: "always_off",
-    OTEL_LOGS_EXPORTER: "console",
-    OTEL_LOG_LEVEL: "ALL",
-    OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "true",
-    OTEL_LOG_USER_PROMPTS: "1",
-    CLAUDE_CODE_ENABLE_TELEMETRY: "1",
-  };
-  for (const signal of ["LOGS", "METRICS", "TRACES"]) {
-    hostile[`OTEL_EXPORTER_OTLP_${signal}_ENDPOINT`] = trap.endpoint;
-    hostile[`OTEL_EXPORTER_OTLP_${signal}_PROTOCOL`] = "http/protobuf";
-    hostile[`OTEL_EXPORTER_OTLP_${signal}_CERTIFICATE`] =
-      "/FORBIDDEN_CONTENT_47f6";
-    hostile[`OTEL_EXPORTER_OTLP_${signal}_CLIENT_KEY`] =
-      "/FORBIDDEN_CONTENT_47f6";
-    hostile[`OTEL_EXPORTER_OTLP_${signal}_CLIENT_CERTIFICATE`] =
-      "/FORBIDDEN_CONTENT_47f6";
-  }
-  try {
-    const child = await startSession(collector.endpoint, hostile);
-    const result = await child.stop();
-    expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("");
-    expect(collector.logs().length).toBeGreaterThan(0);
-    expect(collector.metrics().length).toBeGreaterThan(0);
-    expect(collector.spans().length).toBeGreaterThan(0);
-    expect(trap.requests).toHaveLength(0);
-    expect(JSON.stringify(collector.requests)).not.toContain(
-      "FORBIDDEN_CONTENT_47f6",
-    );
-    for (const request of collector.requests) {
-      for (const resource of [
-        ...(request.resourceLogs ?? []),
-        ...(request.resourceMetrics ?? []),
-        ...(request.resourceSpans ?? []),
-      ])
-        expect(attributes(resource.resource.attributes)["service.name"]).toBe(
-          "pi-coding-agent",
-        );
+it.each(["tools", "usage"])(
+  "isolates destinations/resources/credentials and excludes %s content in all three signals",
+  async (scenario) => {
+    const collector = await receiver();
+    const trap = await receiver();
+    const hostile: NodeJS.ProcessEnv = {
+      PI_OTEL_TRACES: "1",
+      FIXTURE_SCENARIO: scenario,
+      OTEL_SERVICE_NAME: "FORBIDDEN_CONTENT_47f6",
+      OTEL_RESOURCE_ATTRIBUTES: "secret=FORBIDDEN_CONTENT_47f6",
+      OTEL_TRACES_SAMPLER: "always_off",
+      OTEL_LOGS_EXPORTER: "console",
+      OTEL_LOG_LEVEL: "ALL",
+      OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "true",
+      OTEL_LOG_USER_PROMPTS: "1",
+      CLAUDE_CODE_ENABLE_TELEMETRY: "1",
+    };
+    for (const signal of ["LOGS", "METRICS", "TRACES"]) {
+      hostile[`OTEL_EXPORTER_OTLP_${signal}_ENDPOINT`] = trap.endpoint;
+      hostile[`OTEL_EXPORTER_OTLP_${signal}_PROTOCOL`] = "http/protobuf";
+      hostile[`OTEL_EXPORTER_OTLP_${signal}_CERTIFICATE`] =
+        "/FORBIDDEN_CONTENT_47f6";
+      hostile[`OTEL_EXPORTER_OTLP_${signal}_CLIENT_KEY`] =
+        "/FORBIDDEN_CONTENT_47f6";
+      hostile[`OTEL_EXPORTER_OTLP_${signal}_CLIENT_CERTIFICATE`] =
+        "/FORBIDDEN_CONTENT_47f6";
     }
-  } finally {
-    collector.close();
-    trap.close();
-  }
-});
+    try {
+      const child = await startSession(collector.endpoint, hostile);
+      const result = await child.stop();
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("");
+      expect(collector.logs().length).toBeGreaterThan(0);
+      expect(collector.metrics().length).toBeGreaterThan(0);
+      expect(collector.spans().length).toBeGreaterThan(0);
+      expect(trap.requests).toHaveLength(0);
+      expect(JSON.stringify(collector.requests)).not.toContain(
+        "FORBIDDEN_CONTENT_47f6",
+      );
+      for (const request of collector.requests) {
+        for (const resource of [
+          ...(request.resourceLogs ?? []),
+          ...(request.resourceMetrics ?? []),
+          ...(request.resourceSpans ?? []),
+        ])
+          expect(attributes(resource.resource.attributes)["service.name"]).toBe(
+            "pi-coding-agent",
+          );
+      }
+    } finally {
+      collector.close();
+      trap.close();
+    }
+  },
+);
 
 it.each([
   "disabled",
   "load-only",
   "invalid",
   "headers",
+  "headers-value",
   "LOGS_headers",
   "METRICS_headers",
   "TRACES_headers",
@@ -74,10 +78,11 @@ it.each([
   if (setting === "invalid")
     env.OTEL_EXPORTER_OTLP_ENDPOINT =
       "http://FORBIDDEN_CONTENT_47f6@localhost:4317";
-  if (setting.endsWith("headers"))
+  if (setting.includes("headers"))
     env[
-      `OTEL_EXPORTER_OTLP_${setting === "headers" ? "" : `${setting.split("_")[0]}_`}HEADERS`
-    ] = "";
+      `OTEL_EXPORTER_OTLP_${setting === "headers" || setting === "headers-value" ? "" : `${setting.split("_")[0]}_`}HEADERS`
+    ] =
+      setting === "headers-value" ? "authorization=FORBIDDEN_CONTENT_47f6" : "";
   try {
     const child = await startSession(collector.endpoint, env);
     const result = await child.stop();

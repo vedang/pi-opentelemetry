@@ -44,13 +44,13 @@ it.each(["1", "0"])(
         expect(root.parentSpanId ?? "").toBe("");
         expect(new Set(spans.map((span) => span.traceId)).size).toBe(1);
         const outer = spans.find(
-          (span) => attributes(span.attributes)["pi.tool.id"] === "outer",
+          (span) => attributes(span.attributes)["tool.call.id"] === "outer",
         );
         const nested = spans.find(
-          (span) => attributes(span.attributes)["pi.tool.name"] === "inner",
+          (span) => attributes(span.attributes)["tool.name"] === "inner",
         );
         const sibling = spans.find(
-          (span) => attributes(span.attributes)["pi.tool.id"] === "sibling",
+          (span) => attributes(span.attributes)["tool.call.id"] === "sibling",
         );
         expect(nested?.parentSpanId).toBe(outer?.spanId);
         expect(
@@ -80,7 +80,7 @@ it.each(["1", "0"])(
         ).toBe(true);
         expect(
           spans.find(
-            (span) => attributes(span.attributes)["pi.tool.id"] === "fails",
+            (span) => attributes(span.attributes)["tool.call.id"] === "fails",
           )?.status?.code,
         ).toBe("STATUS_CODE_ERROR");
         for (const log of logs) {
@@ -99,9 +99,6 @@ it.each(["1", "0"])(
           0,
         ),
       ).toBe(20);
-      expect(JSON.stringify(collector.requests)).not.toContain(
-        "FORBIDDEN_CONTENT_47f6",
-      );
     } finally {
       collector.close();
     }

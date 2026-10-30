@@ -19,23 +19,21 @@ it.each(["tools", "abort"])(
         .filter((log) => log.body.stringValue === "pi.tool_result")
         .map((log) => attributes(log.attributes));
       expect(tools).toHaveLength(scenario === "tools" ? 4 : 3);
-      expect(new Set(tools.map((tool) => tool["pi.tool.id"])).size).toBe(
+      expect(new Set(tools.map((tool) => tool["tool.call.id"])).size).toBe(
         tools.length,
       );
       if (scenario === "tools") {
         expect(
-          tools.find((tool) => tool["pi.tool.name"] === "fails")?.[
-            "pi.outcome"
-          ],
+          tools.find((tool) => tool["tool.name"] === "fails")?.["pi.outcome"],
         ).toBe("error");
         expect(
-          tools.find((tool) => tool["pi.tool.name"] === "inner")?.[
-            "pi.tool.parent_id"
+          tools.find((tool) => tool["tool.name"] === "inner")?.[
+            "tool.parent_call.id"
           ],
         ).toBe("outer");
         expect(
           tools
-            .filter((tool) => tool["pi.tool.name"] !== "fails")
+            .filter((tool) => tool["tool.name"] !== "fails")
             .every(
               (tool) =>
                 tool["pi.outcome"] === "success" &&
@@ -76,9 +74,6 @@ it.each(["tools", "abort"])(
           0,
         ),
       ).toBe(tools.length);
-      expect(JSON.stringify(collector.requests)).not.toContain(
-        "FORBIDDEN_CONTENT_47f6",
-      );
     } finally {
       collector.close();
     }

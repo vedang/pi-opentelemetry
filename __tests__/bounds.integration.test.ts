@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { startSession } from "./fixtures/child.ts";
 import { attributes, receiver } from "./fixtures/receiver.ts";
 
-it.each(["load", "cardinality"])(
+it.each(["load", "cardinality", "queue"])(
   "%s overload is bounded, visible and cannot fabricate successful excess operations",
   async (scenario) => {
     const collector = await receiver();
@@ -44,6 +44,12 @@ it.each(["load", "cardinality"])(
             0,
           ),
         ).toBe(1024);
+        const runs = metrics
+          .filter((metric) => metric.name === "pi.run.count")
+          .flatMap((metric) => metric.sum?.dataPoints ?? []);
+        expect(
+          runs.map((point) => attributes(point.attributes).outcome),
+        ).toEqual(["incomplete"]);
       } else {
         const points = metrics
           .filter((metric) => metric.name === "pi.token.usage")
@@ -53,12 +59,12 @@ it.each(["load", "cardinality"])(
             (sum, point) => sum + Number(point.asDouble ?? point.asInt ?? 0),
             0,
           ),
-        ).toBe(410);
+        ).toBe(scenario === "queue" ? 800 : 410);
         expect(
           points.some(
             (point) => attributes(point.attributes)["pi.overflow"] === true,
           ),
-        ).toBe(true);
+        ).toBe(scenario === "cardinality");
         expect(
           new Set(points.map((point) => JSON.stringify(point.attributes))).size,
         ).toBeLessThanOrEqual(36);

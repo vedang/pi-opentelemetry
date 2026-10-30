@@ -251,6 +251,9 @@ try {
       await runtime.session.prompt(sentinel);
     }
   }
+  if (scenario === "queue") {
+    for (let i = 1; i < 80; i++) await runtime.session.prompt(sentinel);
+  }
   if (scenario === "usage") {
     await runtime.session.prompt(sentinel);
     await runtime.session.prompt(sentinel);
@@ -285,6 +288,12 @@ try {
     if (command === "quit") break;
     if (command === "status") await runtime.session.prompt("/otel-status");
     if (command === "prompt") await runtime.session.prompt(sentinel);
+    if (command === "second") {
+      const model = runtime.services.modelRuntime.getModel("fixture", "second");
+      if (!model) throw new Error("Missing fixture model");
+      await runtime.session.setModel(model);
+      await runtime.session.prompt(sentinel);
+    }
     process.send?.({ action: command });
   }
   const started = performance.now();

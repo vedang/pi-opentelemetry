@@ -5,29 +5,42 @@ import { attributes, receiver } from "./fixtures/receiver.ts";
 
 it("exports live assistant usage once across two delta intervals with observed model attribution", async () => {
   const collector = await receiver();
-  const child = await startSession(collector.endpoint);
+  let child: Awaited<ReturnType<typeof startSession>> | undefined;
+  let sessionId = "";
   try {
-    const deadline = Date.now() + 23000;
-    while (
-      collector.requests.filter((request) => request.resourceMetrics).length <
-        2 &&
-      Date.now() < deadline
-    )
-      await delay(25);
-    expect(
-      collector.requests.filter((request) => request.resourceMetrics).length,
-    ).toBeGreaterThanOrEqual(2);
+    child = await startSession(collector.endpoint, {
+      FIXTURE_SCENARIO: "intervals",
+    });
+    sessionId = child.info.sessionId;
+    for (const interval of [1, 2]) {
+      const deadline = Date.now() + 12000;
+      while (
+        collector.requests.filter((request) => request.resourceMetrics).length <
+          interval &&
+        Date.now() < deadline
+      )
+        await delay(25);
+      expect(
+        collector.requests.filter((request) => request.resourceMetrics).length,
+      ).toBeGreaterThanOrEqual(interval);
+      if (interval === 1) await child.action("second");
+    }
     await child.action("status");
     expect(child.statuses[0]).toMatch(/unverified/);
     expect(child.statuses.at(-1)).toMatch(
       /healthy; logs=ok, metrics=ok; loss=no/,
     );
   } finally {
-    const result = await child.stop();
-    collector.close();
-    expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("");
-    expect(result.shutdownMs).toBeLessThan(1500);
+    try {
+      if (child) {
+        const result = await child.stop();
+        expect(result.stdout).toBe("");
+        expect(result.stderr).toBe("");
+        expect(result.shutdownMs).toBeLessThan(1500);
+      }
+    } finally {
+      collector.close();
+    }
   }
   const logs = collector.logs();
   expect(logs.every((log) => log.eventName === log.body.stringValue)).toBe(
@@ -47,9 +60,10 @@ it("exports live assistant usage once across two delta intervals with observed m
   expect(
     requests.every(
       (record) =>
-        record["session.id"] === child.info.sessionId &&
+        record["session.id"] === sessionId &&
         Number(record["pi.duration_ms"]) >= 0 &&
-        record["pi.outcome"] === "success",
+        record["pi.outcome"] === "success" &&
+        record["timing.source"] === "assistant_lifecycle",
     ),
   ).toBe(true);
   const tokenMetrics = collector
@@ -94,7 +108,4 @@ it("exports live assistant usage once across two delta intervals with observed m
       0,
     ),
   ).toBeCloseTo(0.7);
-  expect(JSON.stringify(collector.requests)).not.toContain(
-    "FORBIDDEN_CONTENT_47f6",
-  );
 });

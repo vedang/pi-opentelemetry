@@ -46,9 +46,6 @@ it("retains reported unsuccessful usage, omits unknown cost and rejects malforme
         0,
       ),
     ).toBeCloseTo(0.35);
-    expect(JSON.stringify(collector.requests)).not.toContain(
-      "FORBIDDEN_CONTENT_47f6",
-    );
   } finally {
     collector.close();
   }

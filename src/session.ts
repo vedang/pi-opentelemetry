@@ -35,6 +35,11 @@ export function registerSession(pi: ExtensionAPI) {
     "pi.run.id": runId,
   });
 
+  const incomplete = () => {
+    if (run?.outcome === "success") run.outcome = "incomplete";
+    telemetry?.lost();
+  };
+
   const interrupt = () => {
     if (!telemetry) return;
     if (request) {
@@ -46,19 +51,19 @@ export function registerSession(pi: ExtensionAPI) {
       telemetry.emit("pi.llm_request", attrs, request.span);
       telemetry.finish(request.span, attrs, "incomplete");
       request = undefined;
-      telemetry.lost();
+      incomplete();
     }
     for (const [id, tool] of tools) {
       const attrs = {
         ...base(),
-        "pi.tool.id": id,
-        "pi.tool.name": tool.name,
+        "tool.call.id": id,
+        "tool.name": tool.name,
         "pi.outcome": "incomplete",
       };
       telemetry.emit("pi.tool_result", attrs, tool.span);
       telemetry.finish(tool.span, attrs, "incomplete");
     }
-    if (tools.size) telemetry.lost();
+    if (tools.size) incomplete();
     tools.clear();
   };
 
@@ -141,6 +146,7 @@ export function registerSession(pi: ExtensionAPI) {
       ...base(),
       "pi.outcome": outcome,
       "pi.duration_ms": elapsed,
+      "timing.source": "agent_lifecycle",
     };
     telemetry.emit("pi.run_end", attrs, run.span);
     telemetry.finish(run.span, attrs, outcome);
@@ -153,7 +159,7 @@ export function registerSession(pi: ExtensionAPI) {
       label(event.toolCallId) !== event.toolCallId ||
       tools.has(event.toolCallId)
     ) {
-      telemetry.lost();
+      incomplete();
       return;
     }
     const parent = event.parentToolCallId
@@ -161,11 +167,11 @@ export function registerSession(pi: ExtensionAPI) {
       : undefined;
     const attrs: Attributes = {
       ...base(),
-      "pi.tool.id": event.toolCallId,
-      "pi.tool.name": label(event.toolName),
+      "tool.call.id": event.toolCallId,
+      "tool.name": label(event.toolName),
     };
     if (event.parentToolCallId) {
-      attrs["pi.tool.parent_id"] = label(event.parentToolCallId);
+      attrs["tool.parent_call.id"] = label(event.parentToolCallId);
       if (!tools.has(event.parentToolCallId)) attrs["pi.parent.unknown"] = true;
     }
     tools.set(event.toolCallId, {
@@ -181,7 +187,7 @@ export function registerSession(pi: ExtensionAPI) {
     if (!telemetry) return;
     const tool = tools.get(event.toolCallId);
     if (!tool) {
-      telemetry.lost();
+      incomplete();
       return;
     }
     tools.delete(event.toolCallId);
@@ -200,14 +206,16 @@ export function registerSession(pi: ExtensionAPI) {
     toolCount.add(1, dimensions, ROOT_CONTEXT);
     const attrs: Attributes = {
       ...base(),
-      "pi.tool.id": label(event.toolCallId),
-      "pi.tool.name": tool.name,
+      "tool.call.id": label(event.toolCallId),
+      "tool.name": tool.name,
       "pi.outcome": outcome,
       "pi.lifecycle_duration_ms": performance.now() - tool.start,
+      "timing.source": "tool_lifecycle",
     };
-    if (tool.parent) attrs["pi.tool.parent_id"] = tool.parent;
+    if (tool.parent) attrs["tool.parent_call.id"] = tool.parent;
     if (valid(event.durationMs)) {
       attrs["pi.duration_ms"] = event.durationMs;
+      attrs["timing.source"] = "pi_tool_execute";
       toolDuration.record(event.durationMs / 1000, dimensions, ROOT_CONTEXT);
     }
     telemetry.emit("pi.tool_result", attrs, tool.span);
@@ -221,7 +229,7 @@ export function registerSession(pi: ExtensionAPI) {
         { "pi.outcome": "incomplete" },
         "incomplete",
       );
-      telemetry.lost();
+      incomplete();
     }
     const id = randomUUID();
     request = {
@@ -239,7 +247,7 @@ export function registerSession(pi: ExtensionAPI) {
     const observation = request;
     request = undefined;
     if (!observation) {
-      telemetry.lost();
+      incomplete();
       return;
     }
     const message = event.message;
@@ -249,7 +257,7 @@ export function registerSession(pi: ExtensionAPI) {
         { "pi.outcome": "incomplete" },
         "incomplete",
       );
-      telemetry.lost();
+      incomplete();
       return;
     }
     const outcome =
@@ -270,6 +278,7 @@ export function registerSession(pi: ExtensionAPI) {
       "gen_ai.request.model": model,
       "pi.outcome": outcome,
       "pi.duration_ms": performance.now() - observation.start,
+      "timing.source": "assistant_lifecycle",
     };
     // Eight distinct model/provider pairs keep four token types plus outcomes below 64 series.
     const key = `${provider}\0${model}`;
