@@ -1,8 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { credentials, Metadata } from "@grpc/grpc-js";
-import type { Attributes } from "@opentelemetry/api";
+import {
+  type Attributes,
+  ROOT_CONTEXT,
+  type Span,
+  SpanStatusCode,
+  trace,
+} from "@opentelemetry/api";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-grpc";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-grpc";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-grpc";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
   BatchLogRecordProcessor,
@@ -15,6 +22,12 @@ import {
   PeriodicExportingMetricReader,
   type PushMetricExporter,
 } from "@opentelemetry/sdk-metrics";
+import {
+  AlwaysOnSampler,
+  BatchSpanProcessor,
+  type SpanExporter,
+  TracerProvider,
+} from "@opentelemetry/sdk-trace";
 import type { Config } from "./config.ts";
 
 const batching = {
@@ -30,7 +43,10 @@ export function label(value: string): string {
 /** One private owner per active Pi session. No global providers or diagnostics. */
 export class Telemetry {
   readonly instance = randomUUID();
-  private readonly exporters;
+  private readonly exporters: { shutdown(): Promise<void> }[];
+  private readonly traces?: TracerProvider;
+  private readonly tracer?: ReturnType<TracerProvider["getTracer"]>;
+  private pendingSpans = 0;
   private readonly logs;
   private readonly metrics;
   private readonly logger;
@@ -106,6 +122,47 @@ export class Telemetry {
         }),
       ],
     });
+    if (config.traces) {
+      this.results.traces = "unverified";
+      const exporter = new OTLPTraceExporter(options);
+      this.exporters.push(exporter);
+      const observed: SpanExporter = {
+        export: (spans, callback) =>
+          exporter.export(spans, (result) => {
+            this.pendingSpans -= spans.length;
+            this.result("traces", result.code);
+            callback(result);
+          }),
+        shutdown: () => exporter.shutdown(),
+      };
+      const batch = new BatchSpanProcessor({ ...batching, exporter: observed });
+      this.traces = new TracerProvider({
+        resource,
+        sampler: new AlwaysOnSampler(),
+        spanLimits: {
+          attributeCountLimit: 32,
+          attributeValueLengthLimit: 128,
+          eventCountLimit: 0,
+          linkCountLimit: 0,
+        },
+        spanProcessors: [
+          {
+            onStart: () => {},
+            onEnd: (span) => {
+              if (this.pendingSpans >= 64) {
+                this.lost();
+                return;
+              }
+              this.pendingSpans++;
+              batch.onEnd(span);
+            },
+            forceFlush: () => batch.forceFlush(),
+            shutdown: () => batch.shutdown(),
+          },
+        ],
+      });
+      this.tracer = this.traces.getTracer("pi-opentelemetry", "0.1.0");
+    }
     this.logger = this.logs.getLogger("pi-opentelemetry", "0.1.0");
     this.meter = this.metrics.getMeter("pi-opentelemetry", "0.1.0");
   }
@@ -136,7 +193,23 @@ export class Telemetry {
       .join(", ")}; loss=${this.loss ? "yes" : "no"}`;
   }
 
-  emit(name: string, attributes: Attributes) {
+  start(name: string, attributes: Attributes, parent?: Span): Span | undefined {
+    return this.tracer?.startSpan(
+      name,
+      { attributes },
+      parent ? trace.setSpan(ROOT_CONTEXT, parent) : ROOT_CONTEXT,
+    );
+  }
+
+  finish(span: Span | undefined, attributes: Attributes, outcome: string) {
+    span?.setAttributes(attributes);
+    span?.setStatus({
+      code: outcome === "success" ? SpanStatusCode.OK : SpanStatusCode.ERROR,
+    });
+    span?.end();
+  }
+
+  emit(name: string, attributes: Attributes, span?: Span) {
     if (this.closing) return;
     // Admission count includes in-flight records; prevents SDK drops without a second queue.
     if (this.pendingLogs >= 64) {
@@ -144,12 +217,20 @@ export class Telemetry {
       return;
     }
     this.pendingLogs++;
-    this.logger.emit({ body: name, attributes });
+    this.logger.emit({
+      body: name,
+      attributes,
+      context: span ? trace.setSpan(ROOT_CONTEXT, span) : ROOT_CONTEXT,
+    });
   }
 
   shutdown(): Promise<void> {
     this.closing ??= (async () => {
-      await Promise.allSettled([this.logs.shutdown(), this.metrics.shutdown()]);
+      await Promise.allSettled([
+        this.logs.shutdown(),
+        this.metrics.shutdown(),
+        ...(this.traces ? [this.traces.shutdown()] : []),
+      ]);
       // A rejected provider shutdown can skip closing its exporter.
       await Promise.allSettled(
         this.exporters.map((exporter) => exporter.shutdown()),

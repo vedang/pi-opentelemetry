@@ -3,7 +3,7 @@ import type {
   ExtensionAPI,
   MessageEndEvent,
 } from "@earendil-works/pi-coding-agent";
-import type { Attributes } from "@opentelemetry/api";
+import type { Attributes, Span } from "@opentelemetry/api";
 import { configuration } from "./config.ts";
 import { label, Telemetry } from "./telemetry.ts";
 
@@ -16,11 +16,11 @@ export function registerSession(pi: ExtensionAPI) {
   let disabled = "off";
   let sessionId = "";
   let runId = "";
-  let request: { id: string; start: number } | undefined;
-  let run: { start: number; outcome: string } | undefined;
+  let request: { id: string; start: number; span?: Span } | undefined;
+  let run: { start: number; outcome: string; span?: Span } | undefined;
   const tools = new Map<
     string,
-    { start: number; name: string; parent?: string }
+    { start: number; name: string; parent?: string; span?: Span }
   >();
   const toolNames = new Set<string>();
   let runs: ReturnType<Telemetry["meter"]["createCounter"]>;
@@ -38,21 +38,26 @@ export function registerSession(pi: ExtensionAPI) {
   const interrupt = () => {
     if (!telemetry) return;
     if (request) {
-      telemetry.emit("pi.assistant.request", {
+      const attrs = {
         ...base(),
         "pi.request.id": request.id,
         "pi.outcome": "incomplete",
-      });
+      };
+      telemetry.emit("pi.assistant.request", attrs, request.span);
+      telemetry.finish(request.span, attrs, "incomplete");
       request = undefined;
       telemetry.lost();
     }
-    for (const [id, tool] of tools)
-      telemetry.emit("pi.tool.end", {
+    for (const [id, tool] of tools) {
+      const attrs = {
         ...base(),
         "pi.tool.id": id,
         "pi.tool.name": tool.name,
         "pi.outcome": "incomplete",
-      });
+      };
+      telemetry.emit("pi.tool.end", attrs, tool.span);
+      telemetry.finish(tool.span, attrs, "incomplete");
+    }
     if (tools.size) telemetry.lost();
     tools.clear();
   };
@@ -95,10 +100,17 @@ export function registerSession(pi: ExtensionAPI) {
   pi.on("agent_start", () => {
     if (!telemetry) return;
     interrupt();
-    if (run) telemetry.lost();
+    if (run) {
+      telemetry.finish(run.span, { "pi.outcome": "incomplete" }, "incomplete");
+      telemetry.lost();
+    }
     runId = randomUUID();
-    run = { start: performance.now(), outcome: "success" };
-    telemetry.emit("pi.agent.start", base());
+    run = {
+      start: performance.now(),
+      outcome: "success",
+      span: telemetry.start("pi.agent_run", base()),
+    };
+    telemetry.emit("pi.agent.start", base(), run.span);
   });
   pi.on("agent_end", (_event, ctx) => {
     if (!telemetry || !run) return;
@@ -108,11 +120,9 @@ export function registerSession(pi: ExtensionAPI) {
     const dimensions = { "pi.outcome": outcome };
     runs.add(1, dimensions);
     runDuration.record(elapsed, dimensions);
-    telemetry.emit("pi.agent.end", {
-      ...base(),
-      ...dimensions,
-      "pi.duration_ms": elapsed,
-    });
+    const attrs = { ...base(), ...dimensions, "pi.duration_ms": elapsed };
+    telemetry.emit("pi.agent.end", attrs, run.span);
+    telemetry.finish(run.span, attrs, outcome);
     run = undefined;
   });
   pi.on("tool_execution_start", (event) => {
@@ -125,12 +135,25 @@ export function registerSession(pi: ExtensionAPI) {
       telemetry.lost();
       return;
     }
+    const parent = event.parentToolCallId
+      ? tools.get(event.parentToolCallId)?.span
+      : undefined;
+    const attrs: Attributes = {
+      ...base(),
+      "pi.tool.id": event.toolCallId,
+      "pi.tool.name": label(event.toolName),
+    };
+    if (event.parentToolCallId) {
+      attrs["pi.tool.parent_id"] = label(event.parentToolCallId);
+      if (!tools.has(event.parentToolCallId)) attrs["pi.parent.unknown"] = true;
+    }
     tools.set(event.toolCallId, {
       start: performance.now(),
       name: label(event.toolName),
       parent: event.parentToolCallId
         ? label(event.parentToolCallId)
         : undefined,
+      span: telemetry.start("pi.tool", attrs, parent ?? run?.span),
     });
   });
   pi.on("tool_execution_end", (event, ctx) => {
@@ -166,12 +189,29 @@ export function registerSession(pi: ExtensionAPI) {
       attrs["pi.duration_ms"] = event.durationMs;
       toolDuration.record(event.durationMs, dimensions);
     }
-    telemetry.emit("pi.tool.end", attrs);
+    telemetry.emit("pi.tool.end", attrs, tool.span);
+    telemetry.finish(tool.span, attrs, outcome);
   });
   pi.on("message_start", (event) => {
     if (!telemetry || event.message.role !== "assistant") return;
-    if (request) telemetry.lost();
-    request = { id: randomUUID(), start: performance.now() };
+    if (request) {
+      telemetry.finish(
+        request.span,
+        { "pi.outcome": "incomplete" },
+        "incomplete",
+      );
+      telemetry.lost();
+    }
+    const id = randomUUID();
+    request = {
+      id,
+      start: performance.now(),
+      span: telemetry.start(
+        "pi.llm_request",
+        { ...base(), "pi.request.id": id, "gen_ai.operation.name": "chat" },
+        run?.span,
+      ),
+    };
   });
   pi.on("message_end", (event: MessageEndEvent) => {
     if (!telemetry || event.message.role !== "assistant") return;
@@ -182,7 +222,15 @@ export function registerSession(pi: ExtensionAPI) {
       return;
     }
     const message = event.message;
-    if (message.stopReason === "pending") return;
+    if (message.stopReason === "pending") {
+      telemetry.finish(
+        observation.span,
+        { "pi.outcome": "incomplete" },
+        "incomplete",
+      );
+      telemetry.lost();
+      return;
+    }
     const outcome =
       message.stopReason === "error"
         ? "error"
@@ -226,13 +274,16 @@ export function registerSession(pi: ExtensionAPI) {
       attrs["pi.estimated_cost"] = reportedCost;
       cost.add(reportedCost, dimensions);
     }
-    telemetry.emit("pi.assistant.request", attrs);
+    telemetry.emit("pi.assistant.request", attrs, observation.span);
+    telemetry.finish(observation.span, attrs, outcome);
   });
   pi.on("session_shutdown", async () => {
     if (!telemetry) return;
     interrupt();
     if (run) {
-      telemetry.emit("pi.agent.end", { ...base(), "pi.outcome": "incomplete" });
+      const attrs = { ...base(), "pi.outcome": "incomplete" };
+      telemetry.emit("pi.agent.end", attrs, run.span);
+      telemetry.finish(run.span, attrs, "incomplete");
       run = undefined;
     }
     telemetry.emit("pi.session.end", { "pi.session.id": sessionId });
