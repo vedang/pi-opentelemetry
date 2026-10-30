@@ -24,6 +24,7 @@ export async function startSession(
   let stdout = "";
   let stderr = "";
   let shutdownMs: number | undefined;
+  const statuses: string[] = [];
   child.stdout?.on("data", (chunk) => {
     stdout += chunk;
   });
@@ -33,26 +34,31 @@ export async function startSession(
   const exit = new Promise<{ code: number | null; signal: string | null }>(
     (res, rej) => {
       child.once("error", rej);
-      child.once("exit", (code, signal) => res({ code, signal }));
+      child.once("close", (code, signal) => res({ code, signal }));
     },
   );
-  const ready = new Promise<{ sessionId: string }>((res, rej) => {
-    child.on(
-      "message",
-      (message: {
-        ready?: boolean;
-        sessionId: string;
-        shutdownMs?: number;
-      }) => {
-        if (message.ready) res(message);
-        if (message.shutdownMs !== undefined) shutdownMs = message.shutdownMs;
-      },
-    );
-    exit.then(
-      () => rej(new Error(`Fixture exited before ready: ${stderr}`)),
-      rej,
-    );
-  });
+  const ready = new Promise<{ sessionId: string; ids: string[] }>(
+    (res, rej) => {
+      child.on(
+        "message",
+        (message: {
+          ready?: boolean;
+          sessionId: string;
+          ids: string[];
+          status?: string;
+          shutdownMs?: number;
+        }) => {
+          if (message.status) statuses.push(message.status);
+          if (message.ready) res(message);
+          if (message.shutdownMs !== undefined) shutdownMs = message.shutdownMs;
+        },
+      );
+      exit.then(
+        () => rej(new Error(`Fixture exited before ready: ${stderr}`)),
+        rej,
+      );
+    },
+  );
   let killed = false;
   const timer = setTimeout(() => {
     killed = true;
@@ -62,6 +68,22 @@ export async function startSession(
     const info = await ready;
     return {
       info,
+      statuses,
+      async action(command: string) {
+        await new Promise<void>((resolve, reject) => {
+          const listener = (message: { action?: string }) => {
+            if (message.action !== command) return;
+            child.off("message", listener);
+            resolve();
+          };
+          child.on("message", listener);
+          exit.then(() => {
+            child.off("message", listener);
+            reject(new Error("Fixture exited before action"));
+          }, reject);
+          child.send(command);
+        });
+      },
       async stop() {
         if (child.connected) child.send("quit");
         const result = await exit;

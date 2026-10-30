@@ -1,6 +1,11 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Server, ServerCredentials } from "@grpc/grpc-js";
+import {
+  Server,
+  ServerCredentials,
+  type ServerUnaryCall,
+  type sendUnaryData,
+} from "@grpc/grpc-js";
 import protobuf from "protobufjs";
 
 export interface KeyValue {
@@ -13,6 +18,7 @@ export interface KeyValue {
   };
 }
 export interface WireLog {
+  eventName: string;
   body: { stringValue: string };
   attributes: KeyValue[];
   traceId?: string;
@@ -106,7 +112,10 @@ export async function receiver(mode: "ok" | "hung" | "fail" = "ok") {
         },
       },
       {
-        export(call, callback) {
+        export(
+          call: ServerUnaryCall<Request, object>,
+          callback: sendUnaryData<object>,
+        ) {
           requests.push(call.request);
           if (mode === "ok") callback(null, {});
           if (mode === "fail")
@@ -146,6 +155,9 @@ export async function receiver(mode: "ok" | "hung" | "fail" = "ok") {
             resource.scopeSpans.flatMap((scope) => scope.spans),
           ) ?? [],
       ),
+    setMode(value: "ok" | "hung" | "fail") {
+      mode = value;
+    },
     close: () => server.forceShutdown(),
   };
 }

@@ -17,6 +17,11 @@ it("exports live assistant usage once across two delta intervals with observed m
     expect(
       collector.requests.filter((request) => request.resourceMetrics).length,
     ).toBeGreaterThanOrEqual(2);
+    await child.action("status");
+    expect(child.statuses[0]).toMatch(/unverified/);
+    expect(child.statuses.at(-1)).toMatch(
+      /healthy; logs=ok, metrics=ok; loss=no/,
+    );
   } finally {
     const result = await child.stop();
     collector.close();
@@ -25,8 +30,11 @@ it("exports live assistant usage once across two delta intervals with observed m
     expect(result.shutdownMs).toBeLessThan(1500);
   }
   const logs = collector.logs();
+  expect(logs.every((log) => log.eventName === log.body.stringValue)).toBe(
+    true,
+  );
   const requests = logs
-    .filter((log) => log.body.stringValue === "pi.assistant.request")
+    .filter((log) => log.body.stringValue === "pi.llm_request")
     .map((log) => attributes(log.attributes));
   expect(requests).toHaveLength(2);
   expect(requests.map((record) => record["gen_ai.request.model"])).toEqual([
@@ -39,14 +47,14 @@ it("exports live assistant usage once across two delta intervals with observed m
   expect(
     requests.every(
       (record) =>
-        record["pi.session.id"] === child.info.sessionId &&
+        record["session.id"] === child.info.sessionId &&
         Number(record["pi.duration_ms"]) >= 0 &&
         record["pi.outcome"] === "success",
     ),
   ).toBe(true);
   const tokenMetrics = collector
     .metrics()
-    .filter((metric) => metric.name === "pi.assistant.tokens");
+    .filter((metric) => metric.name === "pi.token.usage");
   expect(
     tokenMetrics.every(
       (metric) =>
@@ -61,10 +69,7 @@ it("exports live assistant usage once across two delta intervals with observed m
         points
           .filter((point) => {
             const attrs = attributes(point.attributes);
-            return (
-              attrs["gen_ai.request.model"] === model &&
-              attrs["pi.token.type"] === type
-            );
+            return attrs.model === model && attrs.type === type;
           })
           .reduce(
             (sum, point) => sum + Number(point.asDouble ?? point.asInt ?? 0),
@@ -81,7 +86,7 @@ it("exports live assistant usage once across two delta intervals with observed m
   }
   const costs = collector
     .metrics()
-    .filter((metric) => metric.name === "pi.assistant.estimated_cost")
+    .filter((metric) => metric.name === "pi.cost.usage")
     .flatMap((metric) => metric.sum?.dataPoints ?? []);
   expect(
     costs.reduce(

@@ -16,7 +16,7 @@ it.each(["tools", "abort"])(
       expect(result.shutdownMs).toBeLessThan(1500);
       const logs = collector.logs();
       const tools = logs
-        .filter((log) => log.body.stringValue === "pi.tool.end")
+        .filter((log) => log.body.stringValue === "pi.tool_result")
         .map((log) => attributes(log.attributes));
       expect(tools).toHaveLength(scenario === "tools" ? 4 : 3);
       expect(new Set(tools.map((tool) => tool["pi.tool.id"])).size).toBe(
@@ -47,18 +47,18 @@ it.each(["tools", "abort"])(
           true,
         );
       }
-      const run = logs.filter((log) => log.body.stringValue === "pi.agent.end");
+      const run = logs.filter((log) => log.body.stringValue === "pi.run_end");
       expect(run).toHaveLength(1);
       expect(
         Number(attributes(run[0].attributes)["pi.duration_ms"]),
       ).toBeGreaterThan(0);
       const requestCount = logs.filter(
-        (log) => log.body.stringValue === "pi.assistant.request",
+        (log) => log.body.stringValue === "pi.llm_request",
       ).length;
       expect(requestCount).toBe(scenario === "tools" ? 2 : 1);
       const points = collector
         .metrics()
-        .filter((metric) => metric.name === "pi.assistant.tokens")
+        .filter((metric) => metric.name === "pi.token.usage")
         .flatMap((metric) => metric.sum?.dataPoints ?? []);
       expect(
         points.reduce(
@@ -68,7 +68,7 @@ it.each(["tools", "abort"])(
       ).toBe(requestCount * 10);
       const executions = collector
         .metrics()
-        .filter((metric) => metric.name === "pi.tool.executions")
+        .filter((metric) => metric.name === "pi.tool.calls")
         .flatMap((metric) => metric.sum?.dataPoints ?? []);
       expect(
         executions.reduce(

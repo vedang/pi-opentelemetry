@@ -18,7 +18,7 @@ it.each(["1", "0"])(
       const logs = collector
         .logs()
         .filter((log) =>
-          ["pi.assistant.request", "pi.tool.end", "pi.agent.end"].includes(
+          ["pi.llm_request", "pi.tool_result", "pi.run_end"].includes(
             log.body.stringValue,
           ),
         );
@@ -33,7 +33,7 @@ it.each(["1", "0"])(
         expect(logs.every((log) => !log.traceId && !log.spanId)).toBe(true);
         expect(
           logs
-            .filter((log) => log.body.stringValue === "pi.assistant.request")
+            .filter((log) => log.body.stringValue === "pi.llm_request")
             .every((log) => attributes(log.attributes)["pi.request.id"]),
         ).toBe(true);
       } else {
@@ -91,7 +91,7 @@ it.each(["1", "0"])(
       }
       const points = collector
         .metrics()
-        .filter((metric) => metric.name === "pi.assistant.tokens")
+        .filter((metric) => metric.name === "pi.token.usage")
         .flatMap((metric) => metric.sum?.dataPoints ?? []);
       expect(
         points.reduce(

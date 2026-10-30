@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { VERSION } from "@earendil-works/pi-coding-agent";
 import { credentials, Metadata } from "@grpc/grpc-js";
 import {
   type Attributes,
@@ -73,6 +74,7 @@ export class Telemetry {
     };
     const resource = resourceFromAttributes({
       "service.name": "pi-coding-agent",
+      "service.version": label(VERSION),
       "service.instance.id": this.instance,
     });
     const logExporter = new OTLPLogExporter(options);
@@ -86,7 +88,7 @@ export class Telemetry {
         logExporter.export(records, (result) => {
           this.pendingLogs -= records.length;
           this.result("logs", result.code);
-          callback(result);
+          callback({ code: result.code });
         }),
       forceFlush: () => logExporter.forceFlush(),
       shutdown: () => logExporter.shutdown(),
@@ -95,7 +97,7 @@ export class Telemetry {
       export: (data, callback) =>
         metricExporter.export(data, (result) => {
           this.result("metrics", result.code);
-          callback(result);
+          callback({ code: result.code });
         }),
       selectAggregationTemporality: () => AggregationTemporality.DELTA,
       forceFlush: () => metricExporter.forceFlush(),
@@ -131,7 +133,7 @@ export class Telemetry {
           exporter.export(spans, (result) => {
             this.pendingSpans -= spans.length;
             this.result("traces", result.code);
-            callback(result);
+            callback({ code: result.code });
           }),
         shutdown: () => exporter.shutdown(),
       };
@@ -219,6 +221,7 @@ export class Telemetry {
     this.pendingLogs++;
     this.logger.emit({
       body: name,
+      eventName: name,
       attributes,
       context: span ? trace.setSpan(ROOT_CONTEXT, span) : ROOT_CONTEXT,
     });
