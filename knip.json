@@ -1,19 +1,12 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["vitest.config.*.ts"],
+  "entry": ["vitest.config.*.ts", "__tests__/fixtures/probe.ts"],
   "project": ["src/**/*.ts", "__tests__/**/*.ts", "vitest.config.*.ts"],
   "ignoreDependencies": [
     "@biomejs/biome",
     "@opentelemetry/otlp-transformer",
-    "@grpc/grpc-js",
-    "@opentelemetry/exporter-logs-otlp-grpc",
-    "@opentelemetry/exporter-metrics-otlp-grpc",
     "@opentelemetry/exporter-trace-otlp-grpc",
-    "@opentelemetry/resources",
-    "@opentelemetry/sdk-logs",
-    "@opentelemetry/sdk-metrics",
-    "@opentelemetry/sdk-trace",
-    "@earendil-works/pi-ai"
+    "@opentelemetry/sdk-trace"
   ],
   "ignoreBinaries": ["make"]
 }
