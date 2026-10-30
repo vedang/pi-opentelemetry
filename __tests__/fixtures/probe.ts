@@ -195,7 +195,9 @@ const factory: CreateAgentSessionRuntimeFactory = async ({
       sessionManager,
       sessionStartEvent,
       model: modelRuntime.getModel("fixture", "first"),
-      tools: [],
+      // An empty allowlist disables extension tools too. Exercise only these
+      // synthetic tools, never Pi's filesystem/shell tools.
+      tools: ["outer", "inner", "sibling", "fails"],
     })),
     services,
     diagnostics: [],

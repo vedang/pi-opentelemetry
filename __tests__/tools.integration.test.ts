@@ -50,10 +50,17 @@ it.each(["tools", "abort"])(
       expect(
         Number(attributes(run[0].attributes)["pi.duration_ms"]),
       ).toBeGreaterThan(0);
-      const requestCount = logs.filter(
+      const requests = logs.filter(
         (log) => log.body.stringValue === "pi.llm_request",
-      ).length;
-      expect(requestCount).toBe(scenario === "tools" ? 2 : 1);
+      );
+      // Pi finalizes an additional zero-usage aborted assistant observation
+      // after cancellation during tools; observations are not paid requests.
+      expect(requests).toHaveLength(2);
+      expect(
+        requests.map((request) => attributes(request.attributes)["pi.outcome"]),
+      ).toEqual(
+        scenario === "tools" ? ["success", "success"] : ["success", "aborted"],
+      );
       const points = collector
         .metrics()
         .filter((metric) => metric.name === "pi.token.usage")
@@ -63,7 +70,7 @@ it.each(["tools", "abort"])(
           (sum, point) => sum + Number(point.asDouble ?? point.asInt ?? 0),
           0,
         ),
-      ).toBe(requestCount * 10);
+      ).toBe(scenario === "tools" ? 20 : 10);
       const executions = collector
         .metrics()
         .filter((metric) => metric.name === "pi.tool.calls")

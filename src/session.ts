@@ -242,7 +242,7 @@ export function registerSession(pi: ExtensionAPI) {
       ),
     };
   });
-  pi.on("message_end", (event: MessageEndEvent) => {
+  pi.on("message_end", (event: MessageEndEvent, ctx) => {
     if (!telemetry || event.message.role !== "assistant") return;
     const observation = request;
     request = undefined;
@@ -260,11 +260,13 @@ export function registerSession(pi: ExtensionAPI) {
       incomplete();
       return;
     }
+    // Pi can finalize cancellation as an error message. Classify from the
+    // public operation signal, never from potentially sensitive error text.
     const outcome =
-      message.stopReason === "error"
-        ? "error"
-        : message.stopReason === "aborted"
-          ? "aborted"
+      message.stopReason === "aborted" || ctx.signal?.aborted
+        ? "aborted"
+        : message.stopReason === "error"
+          ? "error"
           : message.stopReason === "deferred"
             ? "incomplete"
             : "success";
