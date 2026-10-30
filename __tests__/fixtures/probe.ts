@@ -1,9 +1,11 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import {
   type AssistantMessage,
   createAssistantMessageEventStream,
+  Type,
 } from "@earendil-works/pi-ai";
 import {
   type CreateAgentSessionRuntimeFactory,
@@ -18,6 +20,11 @@ import telemetryExtension from "../../src/index.ts";
 
 const dir = await mkdtemp(join(tmpdir(), "pi-otel-session-"));
 const sentinel = "FORBIDDEN_CONTENT_47f6";
+const scenario = process.env.FIXTURE_SCENARIO ?? "assistant";
+let toolStarted: (() => void) | undefined;
+const startedTool = new Promise<void>((resolve) => {
+  toolStarted = resolve;
+});
 const factory: CreateAgentSessionRuntimeFactory = async ({
   sessionManager,
   sessionStartEvent,
@@ -28,6 +35,7 @@ const factory: CreateAgentSessionRuntimeFactory = async ({
     modelsStorePath: join(dir, "models.json"),
     refreshOnCreate: false,
   });
+  let call = 0;
   modelRuntime.registerProvider("fixture", {
     baseUrl: "http://127.0.0.1:1",
     apiKey: "synthetic",
@@ -70,9 +78,21 @@ const factory: CreateAgentSessionRuntimeFactory = async ({
             },
           },
         };
+        call++;
+        const toolTurn = ["tools", "abort"].includes(scenario) && call === 1;
+        if (toolTurn)
+          message.content.push(
+            ...["outer", "sibling", "fails"].map((name) => ({
+              type: "toolCall" as const,
+              id: name,
+              name,
+              arguments: { value: sentinel },
+            })),
+          );
         stream.push({ type: "start", partial: message });
-        message.stopReason = "stop";
-        stream.push({ type: "done", reason: "stop", message });
+        const reason = toolTurn ? "toolUse" : "stop";
+        message.stopReason = reason;
+        stream.push({ type: "done", reason, message });
         stream.end();
       });
       return stream;
@@ -92,7 +112,53 @@ const factory: CreateAgentSessionRuntimeFactory = async ({
       noPromptTemplates: true,
       noThemes: true,
       noContextFiles: true,
-      extensionFactories: [telemetryExtension],
+      extensionFactories: [
+        telemetryExtension,
+        (pi) => {
+          for (const name of ["outer", "inner", "sibling", "fails"])
+            pi.registerTool({
+              name,
+              label: name,
+              description: "Synthetic isolated fixture",
+              parameters: Type.Object({ value: Type.String() }),
+              async execute(_id, _args, signal, _update, ctx) {
+                toolStarted?.();
+                if (scenario === "abort") {
+                  await new Promise<void>((resolve) => {
+                    if (signal?.aborted) resolve();
+                    else
+                      signal?.addEventListener("abort", () => resolve(), {
+                        once: true,
+                      });
+                  });
+                  throw new Error(sentinel);
+                }
+                if (name === "fails") throw new Error(sentinel);
+                await delay(name === "sibling" ? 70 : 20);
+                if (name === "outer")
+                  await ctx.executeTool("inner", { value: sentinel });
+                return {
+                  content: [{ type: "text", text: sentinel }],
+                  details: { sentinel },
+                  usage: {
+                    input: 900,
+                    output: 800,
+                    cacheRead: 0,
+                    cacheWrite: 0,
+                    totalTokens: 1700,
+                    cost: {
+                      input: 9,
+                      output: 8,
+                      cacheRead: 0,
+                      cacheWrite: 0,
+                      total: 17,
+                    },
+                  },
+                };
+              },
+            });
+        },
+      ],
     },
   });
   return {
@@ -114,12 +180,19 @@ const runtime = await createAgentSessionRuntime(factory, {
 });
 try {
   await runtime.session.bindExtensions({});
-  await runtime.session.prompt(sentinel);
+  const prompt = runtime.session.prompt(sentinel);
+  if (scenario === "abort") {
+    await startedTool;
+    await runtime.session.abort();
+  }
+  await prompt;
   const firstId = runtime.session.sessionId;
-  const second = runtime.services.modelRuntime.getModel("fixture", "second");
-  if (!second) throw new Error("Missing fixture model");
-  await runtime.session.setModel(second);
-  await runtime.session.prompt(sentinel);
+  if (scenario === "assistant") {
+    const second = runtime.services.modelRuntime.getModel("fixture", "second");
+    if (!second) throw new Error("Missing fixture model");
+    await runtime.session.setModel(second);
+    await runtime.session.prompt(sentinel);
+  }
   process.send?.({ ready: true, sessionId: firstId });
   await new Promise<void>((resolve) =>
     process.once("message", () => resolve()),
