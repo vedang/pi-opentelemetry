@@ -1,13 +1,13 @@
 # Implementation and acceptance handoff
 
-Updated 2026-10-30 after owner dependency installation and real decoded-wire validation.
+Updated 2026-10-31 after owner-approved installed-package live verification.
 
 ## Current status
 
 - `uf4.1–uf4.6`: accepted and closed. All three signals are implemented and tested; traces are not deferred.
 - `uf4.7`: accepted and closed. Owner-run isolated tarball installation/load passed; owner explicitly confirmed successful frozen dependency installation.
-- `uf4.8`: untouched explicit approval gate for real collector/viewer persistence. No live pipeline traffic has been sent.
-- Package remains private / UNLICENSED. No public distribution, push, global installation, paid calls, service changes or owner configuration changes.
+- `uf4.8`: accepted on owner-approved live persistence proof; see `docs/live-verification.md`. First short attempt lost all exports; two subsequent sessions persisted all expected records. Initial loss remains an investigation follow-up, not a diagnosed/fixed bug.
+- Package remains private / UNLICENSED. Owner pushed the repository and installed its Git package. Agent made no installations, paid calls, service restarts or permanent settings changes.
 
 ## Latest actual evidence
 
@@ -70,7 +70,7 @@ The owner-run `make test-package` passed after the dependency correction. It use
 
 The owner subsequently confirmed `pnpm install --frozen-lockfile --ignore-scripts` succeeded. `uf4.7` is accepted; no packaging gate remains. Do not rerun those successful installations unnecessarily. Rerun normal ordered gates if code/configuration changes are needed.
 
-Request separate explicit permission for `uf4.8`: one bounded synthetic-provider session sending metadata to the existing collector, then read-only viewer queries proving logs, delta metrics and correlated traces persisted. No paid model calls, permanent installation or service/configuration changes. Existing collector endpoint is localhost:4317, forwarding to the viewer at :4327; existing files live under `~/.local/share/claude-otel/`. Never independently open the live DuckDB database. ACKs alone do not prove viewer persistence. Do not make persistent environment/installation/service changes or paid calls without separate approval.
+Owner explicitly requested a sub-session testing the installed Git package. Three bounded synthetic-provider CLI sessions ran; one failed delivery, two succeeded. Final unmodified installed-package confirmation persisted 9 logs, 6 spans and 14 datapoints across 7 delta instruments, exact assistant totals20/synthetic cost0.70, all7 trace-linked logs matching stored spans, no sentinel leakage. Full evidence, IDs and read-only recheck queries: `docs/live-verification.md`. No paid calls or permanent changes. Live verification is now complete; investigate the initial loss separately. Existing collector endpoint is localhost:4317, forwarding to the viewer at :4327; existing files live under `~/.local/share/claude-otel/`. Never independently open the live DuckDB database. ACKs alone do not prove viewer persistence. Do not make persistent environment/installation/service changes or paid calls without separate approval.
 
 ## Commits
 

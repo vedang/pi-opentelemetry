@@ -7,16 +7,18 @@ database, service, or global OpenTelemetry provider.
 
 **Private / UNLICENSED.** Public distribution requires the owner's license
 choice. Implementation and isolated package validation are separate from live
-persistence verification; the latter still requires explicit approval (uf4.8).
-No claim of durable viewer/database persistence follows from an export ACK.
+persistence verification. An approved installed-package smoke test confirmed
+records in the existing viewer; an export ACK alone is not persistence proof.
 
 **Current acceptance:** formatting, TypeScript, Knip, and all default tests pass,
 including real-Pi lifecycle and decoded logs/metrics/traces, privacy, bounds,
 accounting, and outage/cleanup checks. The tarball has been packed, inspected,
 and successfully installed/loaded in an isolated pnpm project (owner-run
 `make test-package`). The owner also confirmed successful frozen dependency
-installation. Implementation and packaging acceptance are complete. Live
-persistence verification remains a separate approval gate.
+installation. Implementation and packaging acceptance are complete. Approved
+live verification also confirmed all three signals in the viewer. One initial
+short session lost its exports; two subsequent sessions passed. See
+[the exact results and limitations](docs/live-verification.md).
 
 ## Try locally
 

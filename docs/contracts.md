@@ -4,7 +4,9 @@ Status: discovery and default implementation acceptance are complete. Real-SDK
 and decoded-wire tests now pass after the owner installed the direct decoder.
 The owner-run isolated tarball install/load passes, and the owner confirmed
 successful frozen dependency installation. Implementation and packaging
-acceptance are complete; live persistence verification still requires approval. See `.agents/implementation-handoff.md` for exact gates, not the
+acceptance are complete. Owner-approved installed-package live verification also
+confirmed all three signals persisted; see `docs/live-verification.md` for the
+initial failed attempt, successful confirmations and retained limitations. See `.agents/implementation-handoff.md` for exact gates, not the
 historical discovery-only statements below. Current owner manifest and actual
 `pnpm --version` are **12.16.1**; use that pin for development and CI. The 12.15.0
 mentions below describe earlier discovery runs, not the release toolchain.
