@@ -1,6 +1,7 @@
 # Minimal-release contracts
 
-Status: discovery and default implementation acceptance are complete. Real-SDK
+Minimal-release status (before the V1 expansion): discovery and default
+implementation acceptance are complete. Real-SDK
 and decoded-wire tests now pass after the owner installed the direct decoder.
 The owner-run isolated tarball install/load passes, and the owner confirmed
 successful frozen dependency installation. Implementation and packaging
@@ -15,6 +16,15 @@ Owner approved fail-closed disabling whenever any
 inherited general or per-signal OTLP header setting is present (including empty).
 Keep official signal gRPC exporters; no delegate/encoder or process.env mutation.
 The former header blocker is resolved by this explicit contract adjustment.
+
+V1 activity/turn implementation is present but **unaccepted** pending
+`pi-opentelemetryroot-bbt`: final ordered format/check passed, unit 1/1 passed,
+and integration 35/36 passed; trace-enabled nested-tool correlation failed on a
+telemetry-loss warning. Earlier full integration 36/36 passed; neither that nor
+focused passes resolve the intermittent loss. No queue/deadline changes or
+weakened non-overload assertions were applied. Activity/turn functional proof,
+bounds and anomaly policies are documented below; expanded package/live gates
+remain separate and were not run.
 
 ## Inspected versions and sources
 
@@ -80,9 +90,34 @@ Providers/instance ID/state must be runtime-local; shutdown idempotent. Cancelle
 switch/fork does not dispose the active runtime. The table is source evidence;
 new/resume/fork/reload/quit still require real SDK tests before acceptance.
 
-`agent_start`/`agent_end` delimit low-level runs, **not user prompts or HTTP
-attempts**; retries/recovery can start additional runs. `agent_settled` is final
-idle and exposes `aborted`. Run time is wall time, including compaction delays.
+`before_agent_start` through `agent_settled` defines a bounded observed activity,
+**not a human prompt identity**. Only the `messageType=user|custom` discriminant
+is selected. `agent_start`/`agent_end` delimit low-level runs, **not user prompts
+or HTTP attempts**; retries/recovery, queued messages and pre-settlement
+continuation can start additional runs within the same activity. `agent_settled`
+is final idle and exposes `aborted`; settlement is not task success.
+`turn_start`/`turn_end` delimit unique turns with numeric run-local `pi.turn.index`
+(reset per run). Explicit ancestry is activity → run → turn → existing assistant
+observation/tools, with actual nested tool parents. No global context is used.
+Run/activity/turn durations are inclusive wall intervals, not exclusive phases.
+
+V1 emits live activity/turn start logs and terminal logs plus count/duration
+instruments; durations are seconds, all dimensions bounded enums/booleans. IDs
+remain record-only even with tracing disabled. `pi.scope` explicitly identifies
+standalone/activity/run/turn correlation; completed IDs are immediately discarded.
+Activity final `pi.outcome=settled` has neutral trace status; `pi.aborted` is the
+final public boolean, independent of observed `pi.had_error`. Cleanup is incomplete
+with neither invented final abort state nor completion duration. Duplicate starts
+close old owners/descendants once before assigning new IDs; terminal-only
+turn/settlement emits incomplete/start-missing without fabricated IDs, duration,
+span or count. Incomplete paired cleanup contributes an incomplete count, not a
+duration sample. Full policies and per-record budgets (maximum 20 current
+attributes, below the unchanged 32/128 limits):
+[V1 activity contract](plans/granular-metadata-telemetry/activity-contract.md).
+One activity/run/turn and serial request are retained, plus at most 1,024 tools;
+existing 64-record admission and cardinality caps remain unchanged. Rapid turns
+can produce sticky loss. The existing llm_request schema/accounting remains until
+V2 replaces it; no provider-hook or extra usage scope is introduced here.
 
 Only live assistant `message_end` observations contribute tokens/cost. Pi forwards
 extensions before persistence. Use the finalized message's `provider` and `model`

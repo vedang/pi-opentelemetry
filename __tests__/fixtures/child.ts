@@ -79,7 +79,7 @@ export async function startSession(
           child.on("message", listener);
           exit.then(() => {
             child.off("message", listener);
-            reject(new Error("Fixture exited before action"));
+            reject(new Error(`Fixture exited before action: ${stderr}`));
           }, reject);
           child.send(command);
         });

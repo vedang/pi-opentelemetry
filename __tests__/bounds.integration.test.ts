@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { startSession } from "./fixtures/child.ts";
 import { attributes, receiver } from "./fixtures/receiver.ts";
 
-it.each(["load", "cardinality", "queue"])(
+it.each(["load", "cardinality", "queue", "rapid-turn"])(
   "%s overload is bounded, visible and cannot fabricate successful excess operations",
   async (scenario) => {
     const collector = await receiver();
@@ -59,7 +59,37 @@ it.each(["load", "cardinality", "queue"])(
             (sum, point) => sum + Number(point.asDouble ?? point.asInt ?? 0),
             0,
           ),
-        ).toBe(scenario === "queue" ? 800 : 410);
+        ).toBe(scenario === "cardinality" ? 410 : 800);
+        if (scenario === "rapid-turn") {
+          const turns = metrics
+            .filter((metric) => metric.name === "pi.turn.count")
+            .flatMap((metric) => metric.sum?.dataPoints ?? []);
+          expect(
+            turns.reduce(
+              (sum, point) => sum + Number(point.asDouble ?? point.asInt ?? 0),
+              0,
+            ),
+          ).toBe(80);
+          const activities = metrics
+            .filter((metric) => metric.name === "pi.activity.count")
+            .flatMap((metric) => metric.sum?.dataPoints ?? []);
+          expect(
+            activities.reduce(
+              (sum, point) => sum + Number(point.asDouble ?? point.asInt ?? 0),
+              0,
+            ),
+          ).toBe(1);
+          // A saturated batch can also miss the unchanged local RPC deadline;
+          // sticky loss is required, delivery of any particular log is not.
+          expect(
+            new Set(
+              collector
+                .logs()
+                .map((log) => attributes(log.attributes)["pi.activity.id"])
+                .filter(Boolean),
+            ).size,
+          ).toBeLessThanOrEqual(1);
+        }
         expect(
           points.some(
             (point) => attributes(point.attributes)["pi.overflow"] === true,

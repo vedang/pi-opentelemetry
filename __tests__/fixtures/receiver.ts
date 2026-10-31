@@ -33,6 +33,7 @@ interface WirePoint {
 }
 interface WireMetric {
   name: string;
+  unit?: string;
   sum?: { aggregationTemporality: string; dataPoints: WirePoint[] };
   histogram?: { aggregationTemporality: string; dataPoints: WirePoint[] };
 }

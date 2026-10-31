@@ -208,7 +208,12 @@ export class Telemetry {
   finish(span: Span | undefined, attributes: Attributes, outcome: string) {
     span?.setAttributes(attributes);
     span?.setStatus({
-      code: outcome === "success" ? SpanStatusCode.OK : SpanStatusCode.ERROR,
+      code:
+        outcome === "settled"
+          ? SpanStatusCode.UNSET
+          : outcome === "success"
+            ? SpanStatusCode.OK
+            : SpanStatusCode.ERROR,
     });
     span?.end(performance.timeOrigin + performance.now());
   }

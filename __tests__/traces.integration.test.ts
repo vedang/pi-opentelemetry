@@ -37,11 +37,18 @@ it.each(["1", "0"])(
             .every((log) => attributes(log.attributes)["pi.request.id"]),
         ).toBe(true);
       } else {
-        expect(spans).toHaveLength(7);
+        expect(spans).toHaveLength(10);
         const root = spans.find((span) => span.name === "pi.agent_run");
         expect(root).toBeDefined();
         if (!root) throw new Error("Missing run span");
-        expect(root.parentSpanId ?? "").toBe("");
+        const activity = spans.find((span) => span.name === "pi.activity");
+        expect(activity?.parentSpanId ?? "").toBe("");
+        expect(root.parentSpanId).toBe(activity?.spanId);
+        const turns = spans.filter((span) => span.name === "pi.turn");
+        expect(turns).toHaveLength(2);
+        expect(turns.every((span) => span.parentSpanId === root.spanId)).toBe(
+          true,
+        );
         expect(new Set(spans.map((span) => span.traceId)).size).toBe(1);
         const outer = spans.find(
           (span) =>
@@ -55,11 +62,18 @@ it.each(["1", "0"])(
           (span) => attributes(span.attributes)["tool.call.id"] === "sibling",
         );
         expect(nested?.parentSpanId).toBe(outer?.spanId);
-        expect(
-          spans
-            .filter((span) => span !== root && span !== nested)
-            .every((span) => span.parentSpanId === root.spanId),
-        ).toBe(true);
+        for (const span of spans.filter(
+          (span) =>
+            ["pi.tool", "pi.llm_request"].includes(span.name) &&
+            span !== nested,
+        )) {
+          const turn = turns.find(
+            (turn) =>
+              attributes(turn.attributes)["pi.turn.id"] ===
+              attributes(span.attributes)["pi.turn.id"],
+          );
+          expect(span.parentSpanId).toBe(turn?.spanId);
+        }
         if (!outer || !sibling || !nested)
           throw new Error("Missing tool spans");
         expect(BigInt(outer.startTimeUnixNano)).toBeLessThan(

@@ -10,7 +10,8 @@ choice. Implementation and isolated package validation are separate from live
 persistence verification. An approved installed-package smoke test confirmed
 records in the existing viewer; an export ACK alone is not persistence proof.
 
-**Current acceptance:** formatting, TypeScript, Knip, and all default tests pass,
+**Minimal-release acceptance (before the V1 expansion):** formatting, TypeScript,
+Knip, and all default tests passed,
 including real-Pi lifecycle and decoded logs/metrics/traces, privacy, bounds,
 accounting, and outage/cleanup checks. The tarball has been packed, inspected,
 and successfully installed/loaded in an isolated pnpm project (owner-run
@@ -19,6 +20,16 @@ installation. Implementation and packaging acceptance are complete. Approved
 live verification also confirmed all three signals in the viewer. One initial
 short session lost its exports; two subsequent sessions passed. See
 [the exact results and limitations](docs/live-verification.md).
+
+The V1 activity/turn expansion has separate real-SDK and decoded-OTLP proof but
+is **not yet accepted**: the final ordered gates passed format/check and unit
+1/1, but integration finished 35/36 with a telemetry-loss warning in the
+trace-enabled nested-tool scenario. An earlier full 36/36 pass does not fix that
+intermittent failure. `pi-opentelemetryroot-c79.1` remains open pending the
+separate export-loss blocker `pi-opentelemetryroot-bbt`; no deadline, queue or
+non-overload assertion was relaxed. Expanded package/live persistence acceptance
+also remains gated by epic `pi-opentelemetryroot-c79`. Earlier live confirmations
+cover the minimal release, not this expanded schema.
 
 ## Install
 
@@ -311,8 +322,17 @@ Log body and event name:
 
 - `pi.session_start`, `pi.session_end`: runtime activations, including resumed,
   forked and reloaded sessions, **not unique historical sessions**.
-- `pi.run_start`, `pi.run_end`: low-level agent runs, not user prompts. Retries or
-  automatic continuation may create more than one run per prompt.
+- `pi.activity_start`, `pi.activity_end`: observed `before_agent_start` through
+  final `agent_settled`, possibly spanning multiple runs. **Not a human prompt
+  ID**: custom triggers, steering, follow-ups and continuation may contribute.
+  Only `messageType=user|custom` is retained as `pi.message_type`. Settlement is
+  `pi.outcome=settled`, not task success; final `pi.aborted` and observed
+  `pi.had_error` are independent. Interrupted cleanup is `incomplete`, with no
+  invented final abort flag or duration.
+- `pi.run_start`, `pi.run_end`: low-level agent runs, not user prompts. `agent_end`
+  closes the run but leaves the activity open until final settlement.
+- `pi.turn_start`, `pi.turn_end`: unique `pi.turn.id` plus numeric run-local
+  `pi.turn.index`, reset at each run. Start logs are live, not end-time summaries.
 - `pi.llm_request`: finalized live assistant lifecycle observations, not HTTP
   attempts. Provider/model come from the completed message; optional safe response
   ID/model are retained. Duration measures the observed assistant lifecycle,
@@ -322,14 +342,18 @@ Log body and event name:
   normalized outcome, measured lifecycle interval, and Pi's execution duration
   when present. Blocked/pre-execution failures need not have execution duration.
 
-`timing.source` identifies `assistant_lifecycle`, `agent_lifecycle`,
-`tool_lifecycle`, or `pi_tool_execute`. Log `pi.duration_ms` uses the indicated
+`timing.source` identifies `activity_lifecycle`, `turn_lifecycle`,
+`assistant_lifecycle`, `agent_lifecycle`, `tool_lifecycle`, or `pi_tool_execute`. Log `pi.duration_ms` uses the indicated
 source; tool `pi.lifecycle_duration_ms` separately includes pre-execution work.
 Metric duration histograms convert measured milliseconds to seconds.
 
 | Metric | Kind / unit | Dimensions |
 | --- | --- | --- |
 | `pi.session.count` | counter | `start_type` |
+| `pi.activity.count` | counter | `outcome`, `had_error`, optional `aborted` |
+| `pi.activity.duration` | histogram / seconds | same as activity count |
+| `pi.turn.count` | counter | `outcome` |
+| `pi.turn.duration` | histogram / seconds | `outcome` |
 | `pi.run.count` | counter | `outcome` |
 | `pi.run.duration` | histogram / seconds | `outcome` |
 | `pi.token.usage` | counter / tokens | `provider`, `model`, `type`, `source=assistant` |
@@ -359,15 +383,18 @@ uninstrumented compaction and overlapping tools; this is not human active time.
 
 ## Traces and outcomes
 
-With `PI_OTEL_TRACES=1`, `pi.agent_run` is a root; `pi.llm_request` and `pi.tool`
-spans are children. Actual nested tool IDs select the parent; unknown parents
-attach to the run and carry `pi.parent.unknown=true`. Concurrent tools remain
+With `PI_OTEL_TRACES=1`, hierarchy is `pi.activity` → `pi.agent_run` →
+`pi.turn` → existing `pi.llm_request` / `pi.tool`. Actual nested tool IDs select
+parent tools (including composite pipe IDs); unknown tool parents attach to the
+active turn/run/activity and carry `pi.parent.unknown=true`. Missing ancestors
+are omitted, not borrowed from completed work; pre-activity work is standalone.
+`pi.scope=standalone|activity|run|turn` identifies the available live ancestry. Concurrent tools remain
 peers with their real overlap. Parent tool duration is inclusive of children.
 There is no session-long root, HTTP retry-span claim, compaction span,
 child-process instrumentation, global provider registration or global context
 manager. Explicit contexts correlate corresponding log trace/span IDs.
 
-Trace-off preserves session/run/request/tool correlation attributes and the same
+Trace-off preserves session/activity/run/turn/request/tool correlation attributes and the same
 usage metrics, but does not invent trace/span IDs. Provider transport hooks are
 not required for the supported assistant lifecycle observations.
 
@@ -378,12 +405,17 @@ observation counts are not billable-request counts. A run retains an observed fa
 later work recovers. Unmatched completions are suppressed with known loss, never
 turned into successful zero-duration operations. Shutdown interruptions end open
 spans as incomplete, omit unavailable completion durations, and do not increment
-successful completion counts.
+successful completion counts. Activity/run/turn incomplete closures have an
+incomplete count but no duration sample. Repeated starts close the old owner and
+descendants once; unmatched turn/settlement terminals are marked incomplete with
+`pi.start_missing=true` and no invented ID/span/duration/count. Activity settlement
+has neutral trace status, never a successful-task claim. See the
+[V1 anomaly policies and attribute budgets](docs/plans/granular-metadata-telemetry/activity-contract.md).
 
 ## Privacy, bounds, loss and status
 
 Allowlisted data is operational metadata only: versions, random instance and
-local run/request IDs, real session/tool IDs, safe bounded provider/model/tool
+local activity/run/turn/request IDs, real session/tool IDs, safe bounded provider/model/tool
 names, normalized outcomes, finite numeric usage/cost and measured durations.
 No prompts, text/thinking, tool arguments/results, raw errors/stacks, HTTP
 bodies/headers, credentials, user identity, hostnames, paths, cwd or repository
@@ -397,12 +429,14 @@ Limits per activation:
 - Official log/span queues and batches: **64** each; admission counts include
   in-flight records and cap each signal at 64 pending observations. Excess is
   suppressed with sticky known loss, not placed into a second queue.
-- One active run and one serial assistant observation; at most **1,024** open
+- One active activity, run, turn and serial assistant observation; at most **1,024** open
   tools. Overflow starts/completions are suppressed, not fabricated successes.
 - First eight provider/model pairs and sixteen tool names retain metric identity;
   excess models aggregate under `pi.overflow=true`, excess tool names under
   `overflow`, with sticky loss. SDK cardinality is capped at **64** per instrument.
-  Metric dimensions never include session/run/request/tool IDs.
+  Metric dimensions never include session/activity/run/turn/request/tool IDs or turn indexes.
+  Rapid multi-turn work can exhaust admission and produces sticky visible loss;
+  no queue/deadline increase or hidden failure sampling is applied.
 - Logs/spans flush every 5 seconds or on full batches; metrics every 10 seconds.
   RPC deadline **100 ms**, processor/reader deadline **150 ms**: deliberately
   tighter than network-oriented defaults for a local best-effort collector.

@@ -38,6 +38,8 @@ const factory: CreateAgentSessionRuntimeFactory = async ({
     refreshOnCreate: false,
   });
   let call = 0;
+  let continued = false;
+  let queuedAfterRun = false;
   modelRuntime.registerProvider("fixture", {
     baseUrl: "http://127.0.0.1:1",
     apiKey: "synthetic",
@@ -86,7 +88,14 @@ const factory: CreateAgentSessionRuntimeFactory = async ({
         };
         call++;
         const toolTurn =
-          ["tools", "abort", "load"].includes(scenario) && call === 1;
+          [
+            "tools",
+            "abort",
+            "load",
+            "activity",
+            "steering",
+            "reload-active",
+          ].includes(scenario) && call === 1;
         if (toolTurn)
           message.content.push(
             ...(scenario === "load"
@@ -148,6 +157,69 @@ const factory: CreateAgentSessionRuntimeFactory = async ({
       extensionFactories: [
         telemetryExtension,
         (pi) => {
+          if (scenario === "rapid-turn")
+            pi.on("turn_end", () => {
+              if (call < 80)
+                return {
+                  continue: true,
+                  entries: [
+                    {
+                      type: "custom_message",
+                      customType: sentinel,
+                      content: sentinel,
+                      display: false,
+                      details: { sentinel },
+                    },
+                  ],
+                };
+            });
+          if (scenario === "custom")
+            pi.registerCommand("trigger-custom", {
+              description: sentinel,
+              handler: async () => {
+                pi.sendMessage(
+                  {
+                    customType: sentinel,
+                    content: sentinel,
+                    display: false,
+                    details: { sentinel },
+                  },
+                  { triggerTurn: true },
+                );
+              },
+            });
+          if (scenario === "activity") {
+            pi.on("agent_end", () => {
+              if (!queuedAfterRun) {
+                queuedAfterRun = true;
+                pi.sendUserMessage(sentinel, { deliverAs: "followUp" });
+              }
+            });
+            pi.on("agent_before_settle", async (_event, ctx) => {
+              if (continued) return;
+              continued = true;
+              process.send?.({
+                ready: true,
+                sessionId: ctx.sessionManager.getSessionId(),
+                ids: [ctx.sessionManager.getSessionId()],
+              });
+              await new Promise<void>((resolve) =>
+                process.once("message", () => resolve()),
+              );
+              return {
+                continue: true,
+                entries: [
+                  {
+                    type: "custom_message",
+                    customType: sentinel,
+                    content: sentinel,
+                    display: false,
+                    details: { sentinel },
+                  },
+                ],
+              };
+            });
+          }
           for (const name of ["outer", "inner", "sibling", "fails"])
             pi.registerTool({
               name,
@@ -156,7 +228,7 @@ const factory: CreateAgentSessionRuntimeFactory = async ({
               parameters: Type.Object({ value: Type.String() }),
               async execute(_id, _args, signal, _update, ctx) {
                 toolStarted?.();
-                if (scenario === "abort") {
+                if (["abort", "reload-active"].includes(scenario)) {
                   await new Promise<void>((resolve) => {
                     if (signal?.aborted) resolve();
                     else
@@ -233,12 +305,21 @@ try {
   if (scenario !== "load-only") {
     await bind();
     await runtime.session.prompt("/otel-status");
-    const prompt = runtime.session.prompt(sentinel);
-    if (scenario === "abort") {
+    const prompt = runtime.session.prompt(
+      scenario === "custom" ? "/trigger-custom" : sentinel,
+    );
+    if (["abort", "reload-active", "steering"].includes(scenario)) {
       await startedTool;
-      await runtime.session.abort();
+      if (scenario === "steering") {
+        await runtime.session.steer(sentinel);
+        await runtime.session.followUp(sentinel);
+      } else {
+        if (scenario === "reload-active") await runtime.session.reload();
+        await runtime.session.abort();
+      }
     }
     await prompt;
+    await runtime.session.waitForIdle();
   }
   const firstId = runtime.session.sessionId;
   if (scenario === "assistant") {
@@ -290,7 +371,8 @@ try {
     await runtime.session.reload();
     ids.push(runtime.session.sessionId);
   }
-  process.send?.({ ready: true, sessionId: firstId, ids });
+  if (scenario === "activity") process.send?.({ action: "release" });
+  else process.send?.({ ready: true, sessionId: firstId, ids });
   for await (const [command] of on(process, "message")) {
     if (command === "quit") break;
     if (command === "status") await runtime.session.prompt("/otel-status");

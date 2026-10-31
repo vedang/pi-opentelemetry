@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { startSession } from "./fixtures/child.ts";
 import { attributes, receiver } from "./fixtures/receiver.ts";
 
-it.each(["tools", "usage"])(
+it.each(["tools", "usage", "custom", "steering"])(
   "isolates destinations/resources/credentials and excludes %s content in all three signals",
   async (scenario) => {
     const collector = await receiver();
@@ -41,6 +41,25 @@ it.each(["tools", "usage"])(
       expect(JSON.stringify(collector.requests)).not.toContain(
         "FORBIDDEN_CONTENT_47f6",
       );
+      for (const record of [...collector.logs(), ...collector.spans()]) {
+        expect(record.attributes.length).toBeLessThanOrEqual(32);
+        for (const value of Object.values(attributes(record.attributes)))
+          if (typeof value === "string")
+            expect(value.length).toBeLessThanOrEqual(128);
+      }
+      for (const record of collector
+        .logs()
+        .filter((log) =>
+          ["pi.llm_request", "pi.tool_result"].includes(log.body.stringValue),
+        )) {
+        expect(attributes(record.attributes)).toMatchObject({
+          "session.id": child.info.sessionId,
+          "pi.activity.id": expect.any(String),
+          "pi.run.id": expect.any(String),
+          "pi.turn.id": expect.any(String),
+          "pi.outcome": expect.any(String),
+        });
+      }
       for (const request of collector.requests) {
         for (const resource of [
           ...(request.resourceLogs ?? []),

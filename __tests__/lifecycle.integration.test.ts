@@ -39,6 +39,34 @@ it("new/resume/fork/reload dispose old providers and never replay restored usage
     expect(new Set(requests.map((request) => request["pi.run.id"])).size).toBe(
       4,
     );
+    const activityStarts = logs
+      .filter((log) => log.body.stringValue === "pi.activity_start")
+      .map((log) => attributes(log.attributes));
+    const activityEnds = logs
+      .filter((log) => log.body.stringValue === "pi.activity_end")
+      .map((log) => attributes(log.attributes));
+    expect(activityStarts).toHaveLength(4);
+    expect(activityEnds.map((record) => record["pi.activity.id"])).toEqual(
+      activityStarts.map((record) => record["pi.activity.id"]),
+    );
+    expect(
+      new Set(activityStarts.map((record) => record["pi.activity.id"])).size,
+    ).toBe(4);
+    expect(requests.map((record) => record["pi.activity.id"])).toEqual(
+      activityStarts.map((record) => record["pi.activity.id"]),
+    );
+    expect(requests.every((record) => record["pi.turn.index"] === "0")).toBe(
+      true,
+    );
+    for (const log of logs.filter((log) =>
+      ["pi.session_start", "pi.session_end"].includes(log.body.stringValue),
+    )) {
+      const record = attributes(log.attributes);
+      expect(record["pi.scope"]).toBe("standalone");
+      expect(record).not.toHaveProperty("pi.activity.id");
+      expect(record).not.toHaveProperty("pi.run.id");
+      expect(record).not.toHaveProperty("pi.turn.id");
+    }
     const resourceIds = new Set(
       collector.requests.flatMap(
         (request) =>

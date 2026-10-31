@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased — granular telemetry V1
+
+- Bounded activity → run → turn correlation through final settlement, with live
+  activity/turn start/end logs, unique record-only IDs and run-local turn indexes.
+- Activity settlement is neutral, not task success; aborted and observed-error
+  flags are independent. Incomplete cleanup never invents completion durations.
+- Explicit standalone scope, trace-off correlation and idempotent owner cleanup;
+  existing assistant-only usage and queue/cardinality limits are unchanged.
+- Real-Pi multi-run/continuation, steering, custom-trigger, abort, active reload,
+  rapid-turn admission, privacy and decoded ancestry proof. Expanded package/live
+  verification remains separately gated; intermittent export loss is not fixed.
+
 ## 0.1.0 — local minimum release candidate
 
 - Explicit Pi opt-in and local-only OTLP/gRPC destination validation; fail closed
