@@ -64,7 +64,13 @@ Production uses private official SDK providers/exporters, explicit contexts and 
 
 Inherited general or per-signal OTLP header settings (including empty) disable telemetry with a fixed diagnostic: the owner-approved fail-closed contract. Only local shared OTLP/gRPC destinations are supported. Assistant accounting excludes compaction, branch summaries and separate nested-model/tool reports; no complete-spending claim.
 
-## Remaining owner action / continuation
+## Documentation and continuation
+
+The owner also requested installation instructions and a beginner collector/viewer walkthrough. README now covers Git install/update/remove, temporary opt-in, plain-language concepts, optional direct-to-viewer mode, complete loopback Collector0.164/viewer0.6 setup, distinct ingestion/UI ports, persistence, status, read-only checks, troubleshooting and safe shutdown. Upstream installation links were inspected. The exact README YAML passes `otelcol-contrib validate` without starting services; all four documented viewer discovery commands ran successfully against the existing viewer. Shell-only syntax checking was blocked by the harness's explicit-shell policy; no workaround or install-command execution was attempted.
+
+After the documentation batch, ordered `make format`, `make check` and `make test` passed again on 2026-10-31: unit1/1 and integration27/27. No production source or test changes were needed. Follow-up `pi-opentelemetryroot-bbt` remains open for the first attempt's unexplained loss. Documentation/live-verification commits are local; the agent has not pushed them.
+
+### Prior owner package confirmations
 
 The owner-run `make test-package` passed after the dependency correction. It uses an offline isolated temporary pnpm project and loads through that project's Pi with telemetry disabled, without global installation or live collector traffic.
 
