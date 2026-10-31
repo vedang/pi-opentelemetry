@@ -14,9 +14,9 @@ No claim of durable viewer/database persistence follows from an export ACK.
 including real-Pi lifecycle and decoded logs/metrics/traces, privacy, bounds,
 accounting, and outage/cleanup checks. The tarball has been packed, inspected,
 and successfully installed/loaded in an isolated pnpm project (owner-run
-`make test-package`). Only frozen dependency installation confirmation remains
-pending; the active harness blocks the agent from running it. Live persistence
-verification remains a separate approval gate.
+`make test-package`). The owner also confirmed successful frozen dependency
+installation. Implementation and packaging acceptance are complete. Live
+persistence verification remains a separate approval gate.
 
 ## Try locally
 
