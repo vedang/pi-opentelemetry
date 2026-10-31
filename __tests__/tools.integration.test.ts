@@ -24,13 +24,16 @@ it.each(["tools", "abort"])(
       );
       if (scenario === "tools") {
         expect(
+          tools.find((tool) => tool["tool.name"] === "outer")?.["tool.call.id"],
+        ).toBe("call_outer|fc_outer");
+        expect(
           tools.find((tool) => tool["tool.name"] === "fails")?.["pi.outcome"],
         ).toBe("error");
         expect(
           tools.find((tool) => tool["tool.name"] === "inner")?.[
             "tool.parent_call.id"
           ],
-        ).toBe("outer");
+        ).toBe("call_outer|fc_outer");
         expect(
           tools
             .filter((tool) => tool["tool.name"] !== "fails")

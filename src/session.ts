@@ -11,6 +11,12 @@ function valid(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
+// Pi providers can use composite IDs (call_id|response_item_id), and nested
+// executions append /n. Keep the existing bounds without widening other labels.
+function toolId(value: string): string {
+  return /^[a-zA-Z0-9_.:/|-]{1,128}$/.test(value) ? value : "other";
+}
+
 export function registerSession(pi: ExtensionAPI) {
   let telemetry: Telemetry | undefined;
   let disabled = "off";
@@ -156,7 +162,7 @@ export function registerSession(pi: ExtensionAPI) {
     if (!telemetry) return;
     if (
       tools.size >= 1024 ||
-      label(event.toolCallId) !== event.toolCallId ||
+      toolId(event.toolCallId) !== event.toolCallId ||
       tools.has(event.toolCallId)
     ) {
       incomplete();
@@ -171,14 +177,14 @@ export function registerSession(pi: ExtensionAPI) {
       "tool.name": label(event.toolName),
     };
     if (event.parentToolCallId) {
-      attrs["tool.parent_call.id"] = label(event.parentToolCallId);
+      attrs["tool.parent_call.id"] = toolId(event.parentToolCallId);
       if (!tools.has(event.parentToolCallId)) attrs["pi.parent.unknown"] = true;
     }
     tools.set(event.toolCallId, {
       start: performance.now(),
       name: label(event.toolName),
       parent: event.parentToolCallId
-        ? label(event.parentToolCallId)
+        ? toolId(event.parentToolCallId)
         : undefined,
       span: telemetry.start("pi.tool", attrs, parent ?? run?.span),
     });
@@ -206,7 +212,7 @@ export function registerSession(pi: ExtensionAPI) {
     toolCount.add(1, dimensions, ROOT_CONTEXT);
     const attrs: Attributes = {
       ...base(),
-      "tool.call.id": label(event.toolCallId),
+      "tool.call.id": toolId(event.toolCallId),
       "tool.name": tool.name,
       "pi.outcome": outcome,
       "pi.lifecycle_duration_ms": performance.now() - tool.start,

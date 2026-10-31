@@ -94,7 +94,12 @@ const factory: CreateAgentSessionRuntimeFactory = async ({
               : ["outer", "sibling", "fails"]
             ).map((name, i) => ({
               type: "toolCall" as const,
-              id: scenario === "load" ? `call${i}` : name,
+              id:
+                scenario === "load"
+                  ? `call${i}`
+                  : name === "outer"
+                    ? "call_outer|fc_outer"
+                    : name,
               name,
               arguments: { value: sentinel },
             })),

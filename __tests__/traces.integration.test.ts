@@ -44,7 +44,9 @@ it.each(["1", "0"])(
         expect(root.parentSpanId ?? "").toBe("");
         expect(new Set(spans.map((span) => span.traceId)).size).toBe(1);
         const outer = spans.find(
-          (span) => attributes(span.attributes)["tool.call.id"] === "outer",
+          (span) =>
+            attributes(span.attributes)["tool.call.id"] ===
+            "call_outer|fc_outer",
         );
         const nested = spans.find(
           (span) => attributes(span.attributes)["tool.name"] === "inner",
