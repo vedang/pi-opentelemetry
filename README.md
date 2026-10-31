@@ -21,15 +21,15 @@ live verification also confirmed all three signals in the viewer. One initial
 short session lost its exports; two subsequent sessions passed. See
 [the exact results and limitations](docs/live-verification.md).
 
-The V1 activity/turn expansion has separate real-SDK and decoded-OTLP proof but
-is **not yet accepted**: the final ordered gates passed format/check and unit
-1/1, but integration finished 35/36 with a telemetry-loss warning in the
-trace-enabled nested-tool scenario. An earlier full 36/36 pass does not fix that
-intermittent failure. `pi-opentelemetryroot-c79.1` remains open pending the
-separate export-loss blocker `pi-opentelemetryroot-bbt`; no deadline, queue or
-non-overload assertion was relaxed. Expanded package/live persistence acceptance
-also remains gated by epic `pi-opentelemetryroot-c79`. Earlier live confirmations
-cover the minimal release, not this expanded schema.
+The V1 activity/turn expansion (`pi-opentelemetryroot-c79.1`) is accepted with an
+**owner-approved flaky-test quarantine**. Ordered format/check passed; unit 1/1
+and regular integration 35/35 passed, with one explicitly skipped trace-enabled
+activity case. Its repair is deferred under `pi-opentelemetryroot-bbt`; the known
+export loss is **not fixed**. The original assertions are retained for
+`make test-flaky`. No production deadline or queue limit changed. Expanded
+package/live persistence acceptance remains gated by epic
+`pi-opentelemetryroot-c79`. Earlier live confirmations cover the minimal release,
+not this expanded schema.
 
 ## Install
 
@@ -493,6 +493,14 @@ folders, temporary loopback receivers and upstream OTLP protobuf definitions.
 Natural child exit is asserted; timeout cleanup is a failure, not proof of clean
 shutdown. No owner credentials, global extensions, paid calls or live pipeline
 are used. CI uses the same Node/pnpm pins and Make gates.
+
+One confirmed flaky case, `activity spans queued runs and pre-settlement
+continuation, traces=1`, is explicitly skipped in regular runs by owner decision.
+The trace-off activity case, nested-tool traces and all other coverage remain
+active. Run `make test-flaky` to execute the quarantined case with its original
+assertions, or `PI_OTEL_RUN_FLAKY=1 make test-integration` to include it in the
+full suite. A passing opt-in run does not resolve the flake. See the
+[investigation and retained limitations](docs/export-loss-investigation.md).
 
 Live verification is a **separate approval gate**: inspect the existing collector
 read-only, baseline the running viewer's query interface, run one approved

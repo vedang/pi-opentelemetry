@@ -1,10 +1,31 @@
 # Export-loss investigation — 2026-10-31
 
-Status: diagnosis in progress under `pi-opentelemetryroot-bbt`; no production fix
-or acceptance claimed. V1 `pi-opentelemetryroot-c79.1` remains unaccepted.
+Status: review/repair deferred under open `pi-opentelemetryroot-bbt`; no
+production fix claimed. The owner explicitly approved quarantining the confirmed
+flaky test and closing V1 `pi-opentelemetryroot-c79.1` without waiting for repair.
+This supersedes the previous V1 acceptance block, not the recorded failures.
 This investigation used only the existing offline real-Pi SDK fixture and
 independent loopback OTLP receiver, not the installed CLI or live pipeline.
 The original installed-CLI loss is not yet proven to have the same cause.
+
+## Owner-approved quarantine
+
+Only `activity spans queued runs and pre-settlement continuation, traces=1` is
+marked FLAKY and dynamically skipped before fixture setup in regular runs.
+The trace-off row and all other tests, including nested-tool trace coverage,
+remain active. The original test body and assertions are preserved.
+
+- `make test-flaky`: opt-in execution of this one quarantined case.
+- `PI_OTEL_RUN_FLAKY=1 make test-integration`: include it in the full suite.
+- Ordered post-quarantine gates: format/check PASS; unit **1/1 PASS**;
+  integration **35 PASS / 1 explicitly skipped** (84.69 seconds).
+- Opt-in `make test-flaky`: **1 PASS / 5 filtered out** on this invocation. This
+  confirms the opt-in runs the test; it does not fix or resolve the flake.
+- Initial quarantine check caught use of `it.each`'s non-context second argument;
+  switched to Vitest's context-aware `it.for` before the passing ordered gates.
+
+The owner deferred test review and export-loss repair to later. No production
+code, timeout, queue, or test assertions changed in this quarantine task.
 
 ## Unchanged test evidence
 

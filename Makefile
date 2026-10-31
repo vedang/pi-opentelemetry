@@ -40,6 +40,10 @@ test-unit:
 test-integration:
 	./node_modules/.bin/vitest run --config vitest.config.integration.ts
 
+.PHONY: test-flaky
+test-flaky: ## Run the quarantined trace-enabled activity regression (may fail)
+	PI_OTEL_RUN_FLAKY=1 ./node_modules/.bin/vitest run --config vitest.config.integration.ts __tests__/activity.integration.test.ts -t 'traces=1'
+
 .PHONY: test-package
 test-package: ## Pack, inspect and offline-install/load in a temporary pnpm project
 	bash scripts/test-package.sh

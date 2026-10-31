@@ -2,9 +2,13 @@ import { expect, it } from "vitest";
 import { startSession } from "./fixtures/child.ts";
 import { attributes, receiver } from "./fixtures/receiver.ts";
 
-it.each(["1", "0"])(
+it.for(["1", "0"])(
   "activity spans queued runs and pre-settlement continuation, traces=%s",
-  async (traces) => {
+  async (traces, ctx) => {
+    // FLAKY: pi-opentelemetryroot-bbt — scheduled trace export can overlap
+    // shutdown. Owner deferred repair; keep assertions intact for opt-in runs.
+    if (traces === "1" && process.env.PI_OTEL_RUN_FLAKY !== "1")
+      ctx.skip("FLAKY: pi-opentelemetryroot-bbt; run make test-flaky");
     const collector = await receiver();
     let child: Awaited<ReturnType<typeof startSession>> | undefined;
     let released = false;

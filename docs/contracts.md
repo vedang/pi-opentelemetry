@@ -17,14 +17,19 @@ inherited general or per-signal OTLP header setting is present (including empty)
 Keep official signal gRPC exporters; no delegate/encoder or process.env mutation.
 The former header blocker is resolved by this explicit contract adjustment.
 
-V1 activity/turn implementation is present but **unaccepted** pending
-`pi-opentelemetryroot-bbt`: final ordered format/check passed, unit 1/1 passed,
-and integration 35/36 passed; trace-enabled nested-tool correlation failed on a
-telemetry-loss warning. Earlier full integration 36/36 passed; neither that nor
-focused passes resolve the intermittent loss. No queue/deadline changes or
-weakened non-overload assertions were applied. Activity/turn functional proof,
-bounds and anomaly policies are documented below; expanded package/live gates
-remain separate and were not run.
+V1 activity/turn implementation (`pi-opentelemetryroot-c79.1`) is accepted with
+an explicit **owner-approved quarantine**, superseding the earlier requirement
+to block V1 on export-loss repair. Ordered format/check passed, unit 1/1 passed,
+and regular integration 35/35 passed with one skipped case. Only the confirmed
+flaky trace-enabled multi-run activity case is skipped; its original assertions
+remain available through `make test-flaky` (or `PI_OTEL_RUN_FLAKY=1` for normal
+integration commands). Trace-off activity and nested-tool trace coverage remain
+active. Export loss is not fixed; review/repair remains open under
+`pi-opentelemetryroot-bbt`. No production queue/deadline changed. Historical
+failures and likely race evidence remain in
+[the investigation](export-loss-investigation.md). Activity/turn functional
+proof, bounds and anomaly policies are documented below; expanded package/live
+gates remain separate and were not run.
 
 ## Inspected versions and sources
 

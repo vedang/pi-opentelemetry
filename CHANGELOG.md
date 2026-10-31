@@ -11,6 +11,9 @@
 - Real-Pi multi-run/continuation, steering, custom-trigger, abort, active reload,
   rapid-turn admission, privacy and decoded ancestry proof. Expanded package/live
   verification remains separately gated; intermittent export loss is not fixed.
+- Owner-approved quarantine of the flaky trace-enabled multi-run activity test;
+  regular runs explicitly skip it, and `make test-flaky` retains opt-in coverage.
+  V1 implementation acceptance does not claim the deferred export-loss repair.
 
 ## 0.1.0 — local minimum release candidate
 
